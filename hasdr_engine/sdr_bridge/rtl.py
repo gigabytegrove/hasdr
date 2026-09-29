@@ -6,6 +6,8 @@ import csv
 import ctypes
 import ctypes.util
 import math
+import os
+from pathlib import Path
 import statistics
 from typing import Any
 
@@ -20,7 +22,23 @@ class RtlSdrLibrary:
     """Small ctypes wrapper around librtlsdr enumeration functions."""
 
     def __init__(self) -> None:
-        path = ctypes.util.find_library("rtlsdr") or "librtlsdr.so.0"
+        runtime_root = os.environ.get("HASDR_RUNTIME_ROOT")
+        path: str
+        if runtime_root:
+            lib_dir = Path(runtime_root) / "usr" / "lib"
+            libusb = lib_dir / "libusb-1.0.so.0"
+            if libusb.exists():
+                try:
+                    ctypes.CDLL(str(libusb), mode=ctypes.RTLD_GLOBAL)
+                except OSError:
+                    pass
+            runtime_library = lib_dir / "librtlsdr.so.0"
+            path = str(runtime_library) if runtime_library.exists() else (
+                ctypes.util.find_library("rtlsdr") or "librtlsdr.so.0"
+            )
+        else:
+            path = ctypes.util.find_library("rtlsdr") or "librtlsdr.so.0"
+
         try:
             self._lib = ctypes.CDLL(path)
         except OSError as err:
