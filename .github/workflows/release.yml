@@ -68,8 +68,12 @@ jobs:
               raise SystemExit("Integration manifest version mismatch")
 
           app_text = Path("hasdr_engine/config.yaml").read_text()
-          app_match = re.search(r'^version:\\s*["\\']?([^"\\'\\s]+)', app_text, re.MULTILINE)
-          if not app_match or app_match.group(1) != version:
+          app_version = None
+          for line in app_text.splitlines():
+              if line.startswith("version:"):
+                  app_version = line.split(":", 1)[1].strip().strip("\"'")
+                  break
+          if app_version != version:
               raise SystemExit("Managed App version mismatch")
 
           const_text = Path("custom_components/rtl_sdr/const.py").read_text()
