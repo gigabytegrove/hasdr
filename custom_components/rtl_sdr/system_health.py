@@ -21,7 +21,7 @@ def async_register(
 
 
 async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
-    """Return aggregate bridge health."""
+    """Return aggregate HASDR backend health."""
     entries = [
         entry
         for entry in hass.config_entries.async_entries(DOMAIN)
@@ -30,17 +30,23 @@ async def system_health_info(hass: HomeAssistant) -> dict[str, Any]:
     online = 0
     radios = 0
     versions: set[str] = set()
+    modes: set[str] = set()
+
     for entry in entries:
+        runtime = entry.runtime_data
+        modes.add(runtime.mode)
         try:
-            health = await entry.runtime_data.client.health()
+            health = await runtime.client.health()
         except Exception:
             continue
         online += 1
         radios += int(health.get("radios", 0))
         versions.add(str(health.get("version", "unknown")))
+
     return {
-        "configured_bridges": len(entries),
-        "online_bridges": online,
+        "configured_backends": len(entries),
+        "online_backends": online,
         "detected_radios": radios,
-        "bridge_versions": ", ".join(sorted(versions)) if versions else "unknown",
+        "engine_versions": ", ".join(sorted(versions)) if versions else "unknown",
+        "backend_modes": ", ".join(sorted(modes)) if modes else "none",
     }
