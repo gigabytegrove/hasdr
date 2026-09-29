@@ -13,11 +13,17 @@ from typing import Any
 from .runtime.rtl import RtlSdrLibrary, RtlSdrLibraryError
 
 _RUNTIME_LOCK = asyncio.Lock()
+_RUNTIME_FORMAT_VERSION = 1
 _PACKAGES = ("rtl-sdr", "rtl_433")
 
 
 class RuntimeBootstrapError(RuntimeError):
     """HASDR could not prepare its local native runtime."""
+
+
+def local_usb_access_available() -> bool:
+    """Return whether libusb can see the Docker USB bus namespace."""
+    return Path("/dev/bus/usb").is_dir()
 
 
 def _commands_available() -> bool:
@@ -131,7 +137,11 @@ async def async_prepare_local_runtime(config_dir: str) -> dict[str, Any]:
                 metadata = json.loads(marker.read_text())
             except (OSError, json.JSONDecodeError):
                 metadata = {}
-            if metadata.get("alpine_release") == release and metadata.get("arch") == arch:
+            if (
+                metadata.get("version") == _RUNTIME_FORMAT_VERSION
+                and metadata.get("alpine_release") == release
+                and metadata.get("arch") == arch
+            ):
                 _activate_runtime(root)
                 if _commands_available() and _library_available():
                     return {
@@ -153,7 +163,7 @@ async def async_prepare_local_runtime(config_dir: str) -> dict[str, Any]:
             await _run_apk_install(temporary)
 
             metadata = {
-                "version": 1,
+                "version": _RUNTIME_FORMAT_VERSION,
                 "alpine_release": release,
                 "arch": arch,
                 "packages": list(_PACKAGES),
