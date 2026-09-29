@@ -104,6 +104,9 @@ class RtlSdrApiClient:
     async def start_scan(self, radio_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._request("POST", f"/v1/radios/{radio_id}/scan", json=payload)
 
+    async def start_monitor(self, radio_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        return await self._request("POST", f"/v1/radios/{radio_id}/monitor", json=payload)
+
     async def start_decoder(self, radio_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         return await self._request("POST", f"/v1/radios/{radio_id}/decode", json=payload)
 
