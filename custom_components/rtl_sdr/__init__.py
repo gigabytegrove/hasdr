@@ -40,6 +40,7 @@ from .const import (
 )
 from .coordinator import RtlSdrCoordinator
 from .local import LocalRtlSdrClient, LocalRuntimeUnavailable
+from .runtime_bootstrap import RuntimeBootstrapError, async_prepare_local_runtime
 from .supervisor import HasdrSupervisorManager, SupervisorEngineError
 
 
@@ -206,9 +207,10 @@ async def _async_create_backend(
 
     if mode == MODE_LOCAL:
         try:
+            await async_prepare_local_runtime(hass.config.config_dir)
             client = LocalRtlSdrClient()
             health = await client.health()
-        except LocalRuntimeUnavailable as err:
+        except (RuntimeBootstrapError, LocalRuntimeUnavailable) as err:
             raise ConfigEntryNotReady(
                 f"Local HASDR runtime is unavailable: {err}"
             ) from err
