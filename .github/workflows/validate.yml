@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install pytest pytest-asyncio ruff aiohttp pyyaml
-      - run: ruff check bridge tests
+      - run: ruff check bridge custom_components/rtl_sdr hasdr_engine/sdr_bridge tests
       - run: pytest -q
       - run: python -m compileall -q custom_components bridge hasdr_engine/sdr_bridge
       - name: Validate JSON and YAML metadata
