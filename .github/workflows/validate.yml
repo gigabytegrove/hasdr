@@ -42,6 +42,37 @@ jobs:
               yaml.safe_load(path.read_text())
           PY
 
+  homeassistant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install "homeassistant==2026.9.2"
+      - name: Import HASDR against Home Assistant
+        run: |
+          python - <<'PY'
+          import importlib
+
+          modules = [
+              "custom_components.rtl_sdr",
+              "custom_components.rtl_sdr.api",
+              "custom_components.rtl_sdr.binary_sensor",
+              "custom_components.rtl_sdr.button",
+              "custom_components.rtl_sdr.config_flow",
+              "custom_components.rtl_sdr.coordinator",
+              "custom_components.rtl_sdr.diagnostics",
+              "custom_components.rtl_sdr.local",
+              "custom_components.rtl_sdr.number",
+              "custom_components.rtl_sdr.sensor",
+              "custom_components.rtl_sdr.system_health",
+          ]
+          for module in modules:
+              importlib.import_module(module)
+          print("HASDR Home Assistant imports passed")
+          PY
+
   docker:
     runs-on: ubuntu-latest
     strategy:
