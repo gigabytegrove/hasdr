@@ -1,0 +1,23 @@
+name: HASDR SDR Engine
+version: "0.2.0"
+slug: hasdr_engine
+description: Managed RTL-SDR hardware engine for the HASDR Home Assistant integration
+url: https://github.com/gigabytegrove/hasdr
+arch:
+  - amd64
+  - aarch64
+homeassistant: "2026.1.0"
+startup: application
+boot: auto
+init: false
+usb: true
+udev: true
+ports:
+  8099/tcp: null
+ports_description:
+  8099/tcp: Internal HASDR API
+watchdog: tcp://[HOST]:8099
+options:
+  api_token: null
+schema:
+  api_token: password
