@@ -9,16 +9,16 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import RtlSdrApiClient, RtlSdrApiError
+from .api import RtlSdrApiError
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class RtlSdrCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Combine bridge snapshots with push-derived radio state."""
+    """Combine backend snapshots with push-derived radio state."""
 
-    def __init__(self, hass: HomeAssistant, client: RtlSdrApiClient) -> None:
+    def __init__(self, hass: HomeAssistant, client: Any) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -32,7 +32,7 @@ class RtlSdrCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             radios_payload = await self.client.radios()
             jobs_payload = await self.client.jobs()
-        except RtlSdrApiError as err:
+        except (RtlSdrApiError, RuntimeError) as err:
             raise UpdateFailed(str(err)) from err
 
         radios = radios_payload.get("radios", [])
