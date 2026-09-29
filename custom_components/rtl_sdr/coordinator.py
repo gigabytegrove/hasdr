@@ -64,6 +64,8 @@ class RtlSdrCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             result = event.get("result", {})
             state["last_scan"] = result
             state["job"] = None
+        elif event_type == "monitor_update":
+            state["last_monitor"] = event.get("result", {})
         elif event_type == "decoded_packet":
             packet = event.get("packet", {})
             state["last_packet"] = packet
