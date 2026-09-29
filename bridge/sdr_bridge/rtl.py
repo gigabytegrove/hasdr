@@ -7,8 +7,9 @@ import ctypes
 import ctypes.util
 import math
 import os
-from pathlib import Path
 import statistics
+from contextlib import suppress
+from pathlib import Path
 from typing import Any
 
 from .models import Radio
@@ -28,10 +29,8 @@ class RtlSdrLibrary:
             lib_dir = Path(runtime_root) / "usr" / "lib"
             libusb = lib_dir / "libusb-1.0.so.0"
             if libusb.exists():
-                try:
+                with suppress(OSError):
                     ctypes.CDLL(str(libusb), mode=ctypes.RTLD_GLOBAL)
-                except OSError:
-                    pass
             runtime_library = lib_dir / "librtlsdr.so.0"
             path = str(runtime_library) if runtime_library.exists() else (
                 ctypes.util.find_library("rtlsdr") or "librtlsdr.so.0"
