@@ -1,5 +1,4 @@
 import pytest
-
 from sdr_bridge.models import Radio, ValidationError, optional_float, require_int
 
 
