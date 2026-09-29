@@ -36,6 +36,7 @@ from .const import (
     SERVICE_REFRESH_RADIOS,
     SERVICE_SCAN,
     SERVICE_START_DECODER,
+    SERVICE_START_MONITOR,
     SERVICE_STOP,
 )
 from .coordinator import RtlSdrCoordinator
@@ -58,6 +59,7 @@ class RtlSdrRuntimeData:
     mode: str
     stop_event: asyncio.Event
     event_task: asyncio.Task[Any]
+    controls: dict[str, dict[str, float]]
 
 
 type RtlSdrConfigEntry = ConfigEntry[RtlSdrRuntimeData]
@@ -75,6 +77,36 @@ SCAN_SCHEMA = vol.Schema(
         vol.Optional("gain_db"): vol.Coerce(float),
         vol.Optional("bias_tee", default=False): cv.boolean,
         vol.Optional("threshold_db_above_noise", default=10.0): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+    }
+)
+
+MONITOR_SCHEMA = vol.Schema(
+    {
+        vol.Required("config_entry_id"): cv.string,
+        vol.Required("radio_id"): cv.string,
+        vol.Required("frequency_hz"): vol.All(vol.Coerce(int), vol.Range(min=1)),
+        vol.Optional("span_hz", default=200_000): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=1_000, max=2_800_000),
+        ),
+        vol.Optional("bin_width_hz", default=25_000): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=1, max=2_800_000),
+        ),
+        vol.Optional("integration_seconds", default=1): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=1, max=3600),
+        ),
+        vol.Optional("ppm", default=0): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=-1000, max=1000),
+        ),
+        vol.Optional("gain_db"): vol.Coerce(float),
+        vol.Optional("bias_tee", default=False): cv.boolean,
+        vol.Optional("threshold_db_above_noise", default=10.0): vol.All(
+            vol.Coerce(float),
+            vol.Range(min=0, max=100),
+        ),
     }
 )
 
@@ -151,6 +183,16 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             raise _service_error(err) from err
         await runtime.coordinator.async_request_refresh()
 
+    async def handle_start_monitor(call: ServiceCall) -> None:
+        data = dict(call.data)
+        runtime = _entry_runtime(hass, data.pop("config_entry_id"))
+        radio_id = data.pop("radio_id")
+        try:
+            await runtime.client.start_monitor(radio_id, data)
+        except (RtlSdrApiError, RuntimeError, ValueError) as err:
+            raise _service_error(err) from err
+        await runtime.coordinator.async_request_refresh()
+
     async def handle_start_decoder(call: ServiceCall) -> None:
         data = dict(call.data)
         runtime = _entry_runtime(hass, data.pop("config_entry_id"))
@@ -187,6 +229,12 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         return {"scan": latest.get("scan")}
 
     hass.services.async_register(DOMAIN, SERVICE_SCAN, handle_scan, schema=SCAN_SCHEMA)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_START_MONITOR,
+        handle_start_monitor,
+        schema=MONITOR_SCHEMA,
+    )
     hass.services.async_register(DOMAIN, SERVICE_START_DECODER, handle_start_decoder, schema=DECODE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_STOP, handle_stop, schema=STOP_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_RADIOS, handle_refresh, schema=REFRESH_SCHEMA)
@@ -317,6 +365,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bo
         mode=mode,
         stop_event=stop_event,
         event_task=event_task,
+        controls={},
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
