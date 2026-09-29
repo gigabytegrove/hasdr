@@ -327,6 +327,7 @@ class RadioManager:
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_runtime_env(),
             )
             self._processes[radio.id] = proc
             job.pid = proc.pid
