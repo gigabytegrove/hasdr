@@ -62,7 +62,13 @@ class BridgeApp:
             "instance_id": self.instance_id,
             "name": self.name,
             "radios": len(self.manager.radios),
-            "capabilities": ["multi_sdr", "rtl_power_scan", "rtl_433_decode", "websocket_events"],
+            "capabilities": [
+                "multi_sdr",
+                "rtl_power_scan",
+                "fixed_frequency_monitor",
+                "rtl_433_decode",
+                "websocket_events",
+            ],
         })
 
     async def radios(self, request: web.Request) -> web.Response:
@@ -89,6 +95,14 @@ class BridgeApp:
     async def scan(self, request: web.Request) -> web.Response:
         payload = await request.json()
         job = await self.manager.start_scan(request.match_info["radio_id"], payload)
+        return web.json_response({"job": job.to_dict()}, status=202)
+
+    async def monitor(self, request: web.Request) -> web.Response:
+        payload = await request.json()
+        job = await self.manager.start_monitor(
+            request.match_info["radio_id"],
+            payload,
+        )
         return web.json_response({"job": job.to_dict()}, status=202)
 
     async def decode(self, request: web.Request) -> web.Response:
@@ -140,6 +154,7 @@ class BridgeApp:
         app.router.add_get("/v1/radios/{radio_id}/history", self.history)
         app.router.add_get("/v1/radios/{radio_id}/scan/latest", self.latest_scan)
         app.router.add_post("/v1/radios/{radio_id}/scan", self.scan)
+        app.router.add_post("/v1/radios/{radio_id}/monitor", self.monitor)
         app.router.add_post("/v1/radios/{radio_id}/decode", self.decode)
         app.router.add_post("/v1/radios/{radio_id}/stop", self.stop)
         app.router.add_get("/v1/ws", self.websocket)
