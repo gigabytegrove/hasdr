@@ -108,3 +108,89 @@ async def test_scan_job_locks_radio_and_emits_summary(
     latest = manager.scan_history(radio_id)[-1]
     assert len(latest["bins"]) == 4
     assert latest["peak_power_db"] == -20.0
+
+
+class FakeReader:
+    def __init__(self, lines: list[bytes]) -> None:
+        self._lines = iter(lines)
+
+    async def readline(self) -> bytes:
+        await asyncio.sleep(0)
+        return next(self._lines, b"")
+
+
+class FakeStreamingProcess:
+    def __init__(self) -> None:
+        self.pid = 5678
+        self.returncode = 0
+        self.stdout = FakeReader(
+            [
+                (
+                    b"2026-09-29, 13:00:00, 433820000, 434020000, 25000, 1000, "
+                    b"-51.0, -50.0, -49.0, -20.0, -48.0, -50.0, -52.0, -51.0\n"
+                )
+            ]
+        )
+        self.stderr = FakeReader([])
+
+    async def wait(self) -> int:
+        return self.returncode
+
+    def send_signal(self, _signal: int) -> None:
+        self.returncode = 0
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+
+@pytest.mark.asyncio
+async def test_fixed_frequency_monitor_emits_live_signal_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[dict] = []
+
+    async def broadcast(payload: dict) -> None:
+        events.append(payload)
+
+    monkeypatch.setattr(manager_module, "RtlSdrLibrary", lambda: FakeLibrary())
+
+    captured_cmd: list[str] = []
+
+    async def fake_subprocess(*cmd: str, **_kwargs):
+        captured_cmd.extend(cmd)
+        return FakeStreamingProcess()
+
+    monkeypatch.setattr(
+        manager_module.asyncio,
+        "create_subprocess_exec",
+        fake_subprocess,
+    )
+
+    manager = RadioManager(broadcast)
+    await manager.refresh_radios(broadcast=False)
+    radio_id = "serial:00000001"
+
+    job = await manager.start_monitor(
+        radio_id,
+        {
+            "frequency_hz": 433_920_000,
+            "span_hz": 200_000,
+            "bin_width_hz": 25_000,
+            "integration_seconds": 1,
+            "threshold_db_above_noise": 10,
+        },
+    )
+    await manager._tasks[radio_id]
+
+    assert job.mode == "monitor"
+    assert "rtl_power" in captured_cmd[0]
+    assert "433820000:434020000:25000" in captured_cmd
+    assert "-1" not in captured_cmd
+
+    updates = [event for event in events if event.get("type") == "monitor_update"]
+    assert len(updates) == 1
+    result = updates[0]["result"]
+    assert result["frequency_hz"] == 433_920_000
+    assert result["power_db"] == -20.0
+    assert result["signal_detected"] is True
+    assert result["signal_above_noise_db"] > 20
