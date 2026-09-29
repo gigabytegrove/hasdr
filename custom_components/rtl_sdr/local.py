@@ -10,7 +10,7 @@ from typing import Any
 from .runtime.manager import RadioManager
 from .runtime.rtl import RtlSdrLibrary, RtlSdrLibraryError
 
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 
 class LocalRuntimeUnavailable(RuntimeError):
@@ -70,6 +70,7 @@ class LocalRtlSdrClient:
                 "embedded_runtime",
                 "multi_sdr",
                 "rtl_power_scan",
+                "fixed_frequency_monitor",
                 "rtl_433_decode",
             ],
         }
@@ -101,6 +102,11 @@ class LocalRtlSdrClient:
     async def start_scan(self, radio_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         await self.async_start()
         job = await self._manager.start_scan(radio_id, payload)
+        return {"job": job.to_dict()}
+
+    async def start_monitor(self, radio_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        await self.async_start()
+        job = await self._manager.start_monitor(radio_id, payload)
         return {"job": job.to_dict()}
 
     async def start_decoder(self, radio_id: str, payload: dict[str, Any]) -> dict[str, Any]:
