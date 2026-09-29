@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
 import json
 import logging
+from collections.abc import Awaitable, Callable
+from contextlib import suppress
 from typing import Any
 
 from aiohttp import ClientError, ClientResponseError, ClientSession, ClientWebSocketResponse, WSMsgType
@@ -79,7 +80,7 @@ class RtlSdrApiClient:
             raise
         except ClientResponseError as err:
             raise RtlSdrApiError(f"HASDR Engine returned HTTP {err.status}: {err.message}") from err
-        except (ClientError, asyncio.TimeoutError) as err:
+        except (TimeoutError, ClientError) as err:
             raise RtlSdrApiConnectionError(str(err)) from err
 
     async def health(self) -> dict[str, Any]:
@@ -138,7 +139,7 @@ class RtlSdrApiClient:
                         break
             except asyncio.CancelledError:
                 raise
-            except (ClientError, asyncio.TimeoutError) as err:
+            except (TimeoutError, ClientError) as err:
                 _LOGGER.debug("HASDR WebSocket disconnected: %s", err)
             finally:
                 if websocket is not None and not websocket.closed:
@@ -146,8 +147,6 @@ class RtlSdrApiClient:
 
             if stop_event.is_set():
                 break
-            try:
+            with suppress(TimeoutError):
                 await asyncio.wait_for(stop_event.wait(), timeout=backoff)
-            except TimeoutError:
-                pass
             backoff = min(backoff * 2, 30)
