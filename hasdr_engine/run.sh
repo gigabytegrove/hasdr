@@ -7,10 +7,10 @@ if [[ -z "${TOKEN}" || "${TOKEN}" == "null" ]]; then
     exit 1
 fi
 
-export SDR_BRIDGE_TOKEN="${TOKEN}"
-export SDR_BRIDGE_NAME="HASDR SDR Engine"
-export SDR_BRIDGE_LISTEN="0.0.0.0"
-export SDR_BRIDGE_PORT="8099"
+export HASDR_API_TOKEN="${TOKEN}"
+export HASDR_NAME="HASDR SDR Engine"
+export HASDR_LISTEN="0.0.0.0"
+export HASDR_PORT="8099"
 export LOG_LEVEL="INFO"
 
 bashio::log.info "Starting HASDR SDR Engine"
