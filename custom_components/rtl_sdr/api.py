@@ -1,4 +1,4 @@
-"""HTTP/WebSocket client for the RTL-SDR bridge."""
+"""HTTP/WebSocket client for remote or Supervisor-managed HASDR engines."""
 
 from __future__ import annotations
 
@@ -22,14 +22,14 @@ class RtlSdrApiAuthError(RtlSdrApiError):
 
 
 class RtlSdrApiConnectionError(RtlSdrApiError):
-    """Bridge connection failed."""
+    """Engine connection failed."""
 
 
 EventCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 class RtlSdrApiClient:
-    """Client for one RTL-SDR bridge."""
+    """Client for one network HASDR engine."""
 
     def __init__(
         self,
@@ -64,22 +64,21 @@ class RtlSdrApiClient:
                 **kwargs,
             ) as response:
                 if response.status in (401, 403):
-                    raise RtlSdrApiAuthError("Bridge rejected the API token")
+                    raise RtlSdrApiAuthError("HASDR Engine rejected the API token")
                 if response.status >= 400:
                     try:
                         error_payload = await response.json(content_type=None)
                     except Exception:
                         error_payload = {}
                     detail = error_payload.get("detail") or error_payload.get("error") or response.reason
-                    raise RtlSdrApiError(f"Bridge returned HTTP {response.status}: {detail}")
+                    raise RtlSdrApiError(f"HASDR Engine returned HTTP {response.status}: {detail}")
                 if response.status == 204:
                     return None
                 return await response.json()
         except RtlSdrApiAuthError:
             raise
         except ClientResponseError as err:
-            detail = err.message
-            raise RtlSdrApiError(f"Bridge returned HTTP {err.status}: {detail}") from err
+            raise RtlSdrApiError(f"HASDR Engine returned HTTP {err.status}: {err.message}") from err
         except (ClientError, asyncio.TimeoutError) as err:
             raise RtlSdrApiConnectionError(str(err)) from err
 
@@ -110,7 +109,7 @@ class RtlSdrApiClient:
     async def stop(self, radio_id: str) -> dict[str, Any]:
         return await self._request("POST", f"/v1/radios/{radio_id}/stop")
 
-    async def websocket_loop(self, callback: EventCallback, stop_event: asyncio.Event) -> None:
+    async def event_loop(self, callback: EventCallback, stop_event: asyncio.Event) -> None:
         """Maintain the push connection until stopped."""
         backoff = 1
         while not stop_event.is_set():
@@ -131,7 +130,7 @@ class RtlSdrApiClient:
                         try:
                             payload = json.loads(message.data)
                         except json.JSONDecodeError:
-                            _LOGGER.debug("Ignoring invalid bridge WebSocket JSON: %s", message.data)
+                            _LOGGER.debug("Ignoring invalid HASDR WebSocket JSON: %s", message.data)
                             continue
                         if isinstance(payload, dict):
                             await callback(payload)
@@ -140,7 +139,7 @@ class RtlSdrApiClient:
             except asyncio.CancelledError:
                 raise
             except (ClientError, asyncio.TimeoutError) as err:
-                _LOGGER.debug("RTL-SDR WebSocket disconnected: %s", err)
+                _LOGGER.debug("HASDR WebSocket disconnected: %s", err)
             finally:
                 if websocket is not None and not websocket.closed:
                     await websocket.close()
