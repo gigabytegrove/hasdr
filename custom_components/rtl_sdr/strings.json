@@ -1,0 +1,214 @@
+{
+  "title": "RTL-SDR",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to RTL-SDR Bridge",
+        "description": "Connect Home Assistant to the local RTL-SDR bridge service.",
+        "data": {
+          "host": "Bridge host",
+          "port": "Bridge port",
+          "token": "API token",
+          "use_ssl": "Use HTTPS"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the machine running the RTL-SDR bridge.",
+          "port": "TCP port used by the bridge. The default is 8099.",
+          "token": "Bearer token configured as SDR_BRIDGE_TOKEN on the bridge.",
+          "use_ssl": "Enable when the bridge is behind a TLS reverse proxy."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to the RTL-SDR bridge.",
+      "invalid_auth": "The RTL-SDR bridge rejected the API token.",
+      "unknown": "Unexpected error while connecting to the RTL-SDR bridge."
+    },
+    "abort": {
+      "already_configured": "This RTL-SDR bridge is already configured."
+    }
+  },
+  "services": {
+    "scan": {
+      "name": "Scan frequency range",
+      "description": "Run a one-shot RTL power spectrum scan on a receiver.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Bridge",
+          "description": "The configured RTL-SDR bridge to use."
+        },
+        "radio_id": {
+          "name": "Receiver ID",
+          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+        },
+        "start_frequency_hz": {
+          "name": "Start frequency",
+          "description": "Beginning of the spectrum range in hertz."
+        },
+        "end_frequency_hz": {
+          "name": "End frequency",
+          "description": "End of the spectrum range in hertz."
+        },
+        "bin_width_hz": {
+          "name": "Bin width",
+          "description": "Requested maximum spectrum-bin width in hertz."
+        },
+        "integration_seconds": {
+          "name": "Integration time",
+          "description": "rtl_power integration interval in seconds."
+        },
+        "ppm": {
+          "name": "PPM correction",
+          "description": "Receiver frequency correction in parts per million."
+        },
+        "gain_db": {
+          "name": "Gain",
+          "description": "Optional manual receiver gain in dB. Leave unset for automatic gain."
+        },
+        "bias_tee": {
+          "name": "Bias-T",
+          "description": "Enable the receiver Bias-T when supported by the hardware."
+        },
+        "threshold_db_above_noise": {
+          "name": "Detection threshold",
+          "description": "Signal level in dB above the median scan noise floor used to mark detections."
+        }
+      }
+    },
+    "start_decoder": {
+      "name": "Start protocol decoder",
+      "description": "Start continuous rtl_433 JSON decoding on one or more frequencies.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Bridge",
+          "description": "The configured RTL-SDR bridge to use."
+        },
+        "radio_id": {
+          "name": "Receiver ID",
+          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+        },
+        "frequencies_hz": {
+          "name": "Frequencies",
+          "description": "One or more receive frequencies in hertz."
+        },
+        "sample_rate_hz": {
+          "name": "Sample rate",
+          "description": "rtl_433 sample rate in samples per second."
+        },
+        "hop_seconds": {
+          "name": "Hop interval",
+          "description": "Seconds between frequencies when more than one frequency is monitored."
+        },
+        "ppm": {
+          "name": "PPM correction",
+          "description": "Receiver frequency correction in parts per million."
+        },
+        "gain_db": {
+          "name": "Gain",
+          "description": "Optional manual receiver gain in dB. Leave unset for automatic gain."
+        },
+        "bias_tee": {
+          "name": "Bias-T",
+          "description": "Enable the receiver Bias-T when supported by the hardware."
+        },
+        "protocols": {
+          "name": "Protocols",
+          "description": "Optional rtl_433 protocol numbers to enable. Leave unset to use rtl_433 defaults."
+        }
+      }
+    },
+    "stop": {
+      "name": "Stop receiver job",
+      "description": "Stop the active scan or decoder on a receiver.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Bridge",
+          "description": "The configured RTL-SDR bridge to use."
+        },
+        "radio_id": {
+          "name": "Receiver ID",
+          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+        }
+      }
+    },
+    "refresh_radios": {
+      "name": "Refresh receivers",
+      "description": "Re-enumerate RTL-SDR devices attached to the bridge host.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Bridge",
+          "description": "The configured RTL-SDR bridge to use."
+        }
+      }
+    },
+    "get_last_scan": {
+      "name": "Get last spectrum scan",
+      "description": "Return the most recent complete spectrum result, including raw bins, for a receiver.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Bridge",
+          "description": "The configured RTL-SDR bridge to use."
+        },
+        "radio_id": {
+          "name": "Receiver ID",
+          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "The selected RTL-SDR configuration entry does not exist."
+    },
+    "entry_not_loaded": {
+      "message": "The selected RTL-SDR configuration entry is not loaded."
+    },
+    "invalid_frequency_range": {
+      "message": "The end frequency must be greater than the start frequency."
+    },
+    "bridge_request_failed": {
+      "message": "The RTL-SDR bridge request failed: {error}"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "status": {
+        "name": "Status"
+      },
+      "active_job": {
+        "name": "Active job"
+      },
+      "peak_frequency": {
+        "name": "Peak frequency"
+      },
+      "peak_power": {
+        "name": "Peak power"
+      },
+      "noise_floor": {
+        "name": "Noise floor"
+      },
+      "last_decoded_model": {
+        "name": "Last decoded model"
+      },
+      "last_decoded_frequency": {
+        "name": "Last decoded frequency"
+      },
+      "decoded_packets": {
+        "name": "Decoded packets"
+      }
+    },
+    "binary_sensor": {
+      "busy": {
+        "name": "Busy"
+      }
+    }
+  },
+  "system_health": {
+    "info": {
+      "configured_bridges": "Configured bridges",
+      "online_bridges": "Online bridges",
+      "detected_radios": "Detected receivers",
+      "bridge_versions": "Bridge versions"
+    }
+  }
+}
