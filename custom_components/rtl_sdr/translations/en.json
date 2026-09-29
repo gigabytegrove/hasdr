@@ -54,12 +54,12 @@
       "description": "Run a one-shot RTL power spectrum scan on a receiver.",
       "fields": {
         "config_entry_id": {
-          "name": "Bridge",
-          "description": "The configured RTL-SDR bridge to use."
+          "name": "HASDR backend",
+          "description": "The configured HASDR backend to use."
         },
         "radio_id": {
           "name": "Receiver ID",
-          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+          "description": "Receiver identifier, preferably a unique serial such as serial:00000001."
         },
         "start_frequency_hz": {
           "name": "Start frequency",
@@ -100,12 +100,12 @@
       "description": "Start continuous rtl_433 JSON decoding on one or more frequencies.",
       "fields": {
         "config_entry_id": {
-          "name": "Bridge",
-          "description": "The configured RTL-SDR bridge to use."
+          "name": "HASDR backend",
+          "description": "The configured HASDR backend to use."
         },
         "radio_id": {
           "name": "Receiver ID",
-          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+          "description": "Receiver identifier, preferably a unique serial such as serial:00000001."
         },
         "frequencies_hz": {
           "name": "Frequencies",
@@ -139,25 +139,25 @@
     },
     "stop": {
       "name": "Stop receiver job",
-      "description": "Stop the active scan or decoder on a receiver.",
+      "description": "Stop the active sweep, fixed-frequency monitor, or decoder on a receiver.",
       "fields": {
         "config_entry_id": {
-          "name": "Bridge",
-          "description": "The configured RTL-SDR bridge to use."
+          "name": "HASDR backend",
+          "description": "The configured HASDR backend to use."
         },
         "radio_id": {
           "name": "Receiver ID",
-          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+          "description": "Receiver identifier, preferably a unique serial such as serial:00000001."
         }
       }
     },
     "refresh_radios": {
       "name": "Refresh receivers",
-      "description": "Re-enumerate RTL-SDR devices attached to the bridge host.",
+      "description": "Re-enumerate RTL-SDR receivers attached to the HASDR backend.",
       "fields": {
         "config_entry_id": {
-          "name": "Bridge",
-          "description": "The configured RTL-SDR bridge to use."
+          "name": "HASDR backend",
+          "description": "The configured HASDR backend to use."
         }
       }
     },
@@ -166,12 +166,58 @@
       "description": "Return the most recent complete spectrum result, including raw bins, for a receiver.",
       "fields": {
         "config_entry_id": {
-          "name": "Bridge",
-          "description": "The configured RTL-SDR bridge to use."
+          "name": "HASDR backend",
+          "description": "The configured HASDR backend to use."
         },
         "radio_id": {
           "name": "Receiver ID",
-          "description": "Receiver identifier reported by the bridge, preferably a unique serial such as serial:00000001."
+          "description": "Receiver identifier, preferably a unique serial such as serial:00000001."
+        }
+      }
+    },
+    "start_monitor": {
+      "name": "Start fixed-frequency monitor",
+      "description": "Continuously monitor generic RF signal power at one frequency until stopped.",
+      "fields": {
+        "config_entry_id": {
+          "name": "HASDR backend",
+          "description": "The configured HASDR backend to use."
+        },
+        "radio_id": {
+          "name": "Receiver ID",
+          "description": "Receiver identifier, preferably a unique serial such as serial:00000001."
+        },
+        "frequency_hz": {
+          "name": "Frequency",
+          "description": "Center frequency to monitor continuously, in hertz."
+        },
+        "span_hz": {
+          "name": "Monitor span",
+          "description": "Spectrum width around the target frequency used to calculate signal and noise, in hertz."
+        },
+        "bin_width_hz": {
+          "name": "Bin width",
+          "description": "Requested maximum FFT bin width in hertz."
+        },
+        "integration_seconds": {
+          "name": "Update interval",
+          "description": "rtl_power integration interval in seconds."
+        },
+        "ppm": {
+          "name": "PPM correction",
+          "description": "Receiver frequency correction in parts per million."
+        },
+        "gain_db": {
+          "name": "Gain",
+          "description": "Optional manual receiver gain in dB. Leave unset for automatic gain."
+        },
+        "bias_tee": {
+          "name": "Bias-T",
+          "description": "Enable the receiver Bias-T when supported by the hardware."
+        },
+        "threshold_db_above_noise": {
+          "name": "Detection threshold",
+          "description": "Signal level in dB above the measured noise floor used by the Signal detected entity."
         }
       }
     }
@@ -215,11 +261,45 @@
       },
       "decoded_packets": {
         "name": "Decoded packets"
+      },
+      "monitor_frequency": {
+        "name": "Monitored frequency"
+      },
+      "monitor_power": {
+        "name": "Signal power"
+      },
+      "signal_above_noise": {
+        "name": "Signal above noise"
       }
     },
     "binary_sensor": {
       "busy": {
         "name": "Busy"
+      },
+      "signal_detected": {
+        "name": "Signal detected"
+      }
+    },
+    "number": {
+      "sweep_start_frequency": {
+        "name": "Sweep start frequency"
+      },
+      "sweep_end_frequency": {
+        "name": "Sweep end frequency"
+      },
+      "monitor_frequency": {
+        "name": "Monitor frequency"
+      }
+    },
+    "button": {
+      "run_sweep": {
+        "name": "Run sweep"
+      },
+      "start_monitor": {
+        "name": "Start monitor"
+      },
+      "stop_receiver": {
+        "name": "Stop receiver"
       }
     }
   },
