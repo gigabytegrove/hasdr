@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
