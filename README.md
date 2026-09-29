@@ -97,6 +97,58 @@ Then go to:
 
 Choose **Local RTL-SDR hardware (recommended)**.
 
+## Easy receiver controls
+
+Each detected RTL-SDR receiver gets its own controls directly on the Home Assistant device page. Developer Tools are not required for normal scanning or monitoring.
+
+### Sweep a range
+
+Set:
+
+- **Sweep start frequency** in MHz
+- **Sweep end frequency** in MHz
+
+Then press **Run sweep**.
+
+For example:
+
+```text
+Sweep start frequency: 850.0000 MHz
+Sweep end frequency:   870.0000 MHz
+Run sweep
+```
+
+HASDR performs a one-shot spectrum sweep and updates the peak frequency, peak power, noise floor, and detection data.
+
+The frequency inputs are restored after Home Assistant restarts.
+
+### Sit on one frequency
+
+Set:
+
+- **Monitor frequency** in MHz
+
+Then press **Start monitor**.
+
+For example:
+
+```text
+Monitor frequency: 853.7375 MHz
+Start monitor
+```
+
+HASDR keeps the receiver tuned around that frequency until **Stop receiver** is pressed. The device updates live with:
+
+- **Monitored frequency**
+- **Signal power**
+- **Signal above noise**
+- **Signal detected**
+- **Active job**
+
+The simple monitor uses a 200 kHz observation window, 25 kHz maximum bins, a one-second integration interval, and a 10 dB-above-noise detection threshold. Advanced users can override those parameters with the `rtl_sdr.start_monitor` action.
+
+The generic monitor is independent of `rtl_433`; it works even when HASDR does not know the protocol carried by the signal.
+
 ## Multiple receivers
 
 Each physical receiver becomes its own Home Assistant device.
