@@ -40,7 +40,11 @@ from .const import (
 )
 from .coordinator import RtlSdrCoordinator
 from .local import LocalRtlSdrClient, LocalRuntimeUnavailable
-from .runtime_bootstrap import RuntimeBootstrapError, async_prepare_local_runtime
+from .runtime_bootstrap import (
+    RuntimeBootstrapError,
+    async_prepare_local_runtime,
+    local_usb_access_available,
+)
 from .supervisor import HasdrSupervisorManager, SupervisorEngineError
 
 
@@ -206,9 +210,13 @@ async def _async_create_backend(
         mode = MODE_REMOTE if CONF_HOST in entry.data else MODE_LOCAL
 
     if mode == MODE_LOCAL:
+        if not local_usb_access_available():
+            raise ConfigEntryNotReady(
+                "Home Assistant Container cannot access /dev/bus/usb; map the USB bus into the container"
+            )
         try:
-            await async_prepare_local_runtime(hass.config.config_dir)
-            client = LocalRtlSdrClient()
+            runtime_info = await async_prepare_local_runtime(hass.config.config_dir)
+            client = LocalRtlSdrClient(runtime_info)
             health = await client.health()
         except (RuntimeBootstrapError, LocalRuntimeUnavailable) as err:
             raise ConfigEntryNotReady(
