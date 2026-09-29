@@ -7,7 +7,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
 from homeassistant.data_entry_flow import FlowResult
@@ -127,7 +126,7 @@ class RtlSdrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors={"base": "local_runtime_unavailable"},
                 description_placeholders={"backend": "embedded local HASDR runtime"},
             )
-        except Exception as err:
+        except Exception:
             _LOGGER.exception("Unable to initialize local HASDR runtime")
             return self.async_show_form(
                 step_id="local",
