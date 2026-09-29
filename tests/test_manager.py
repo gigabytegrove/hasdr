@@ -1,13 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from pathlib import Path
-import sys
 
 import pytest
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "bridge"))
 
 import sdr_bridge.manager as manager_module
 from sdr_bridge.manager import RadioBusyError, RadioManager
@@ -51,7 +46,9 @@ class FakeProcess:
 
 
 @pytest.mark.asyncio
-async def test_scan_job_locks_radio_and_emits_summary(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_scan_job_locks_radio_and_emits_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     events: list[dict] = []
 
     async def broadcast(payload: dict) -> None:
@@ -65,7 +62,11 @@ async def test_scan_job_locks_radio_and_emits_summary(monkeypatch: pytest.Monkey
         captured_cmd.extend(cmd)
         return FakeProcess()
 
-    monkeypatch.setattr(manager_module.asyncio, "create_subprocess_exec", fake_subprocess)
+    monkeypatch.setattr(
+        manager_module.asyncio,
+        "create_subprocess_exec",
+        fake_subprocess,
+    )
 
     manager = RadioManager(broadcast)
     await manager.refresh_radios(broadcast=False)
