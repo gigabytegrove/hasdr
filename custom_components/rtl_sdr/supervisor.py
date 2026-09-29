@@ -95,14 +95,23 @@ class HasdrSupervisorManager:
             if repository.get("source") == REPOSITORY_URL:
                 return repository
 
-        added = await self._request(
+        await self._request(
             "POST",
             "/store/repositories",
             {"repository": REPOSITORY_URL},
         )
-        if isinstance(added, dict):
-            return added
-        raise SupervisorEngineError("Supervisor did not return HASDR repository information")
+
+        repositories = self._items(
+            await self._request("GET", "/store/repositories"),
+            "repositories",
+        )
+        for repository in repositories:
+            if repository.get("source") == REPOSITORY_URL:
+                return repository
+
+        raise SupervisorEngineError(
+            "HASDR App repository was accepted but did not appear in the Supervisor store"
+        )
 
     async def _find_engine(self, repository: dict[str, Any]) -> dict[str, Any]:
         apps = self._items(await self._request("GET", "/store/addons"), "addons")
