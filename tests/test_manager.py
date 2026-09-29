@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 
 import pytest
-
 import sdr_bridge.manager as manager_module
 from sdr_bridge.manager import RadioBusyError, RadioManager
 from sdr_bridge.models import Radio
