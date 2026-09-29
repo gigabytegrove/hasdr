@@ -39,6 +39,11 @@ def _last_packet(radio: dict[str, Any], key: str) -> Any:
     return packet.get(key) if isinstance(packet, dict) else None
 
 
+def _last_monitor(radio: dict[str, Any], key: str) -> Any:
+    monitor = radio.get("last_monitor")
+    return monitor.get(key) if isinstance(monitor, dict) else None
+
+
 SENSORS: tuple[RtlSdrSensorDescription, ...] = (
     RtlSdrSensorDescription(
         key="status",
@@ -65,6 +70,28 @@ SENSORS: tuple[RtlSdrSensorDescription, ...] = (
         translation_key="noise_floor",
         native_unit_of_measurement="dB",
         value_fn=lambda r: _last_scan(r, "noise_floor_db"),
+    ),
+    RtlSdrSensorDescription(
+        key="monitor_frequency",
+        translation_key="monitor_frequency",
+        native_unit_of_measurement="MHz",
+        value_fn=lambda r: (
+            float(_last_monitor(r, "frequency_hz")) / 1_000_000
+            if _last_monitor(r, "frequency_hz") is not None
+            else None
+        ),
+    ),
+    RtlSdrSensorDescription(
+        key="monitor_power",
+        translation_key="monitor_power",
+        native_unit_of_measurement="dB",
+        value_fn=lambda r: _last_monitor(r, "power_db"),
+    ),
+    RtlSdrSensorDescription(
+        key="signal_above_noise",
+        translation_key="signal_above_noise",
+        native_unit_of_measurement="dB",
+        value_fn=lambda r: _last_monitor(r, "signal_above_noise_db"),
     ),
     RtlSdrSensorDescription(
         key="last_decoded_model",
