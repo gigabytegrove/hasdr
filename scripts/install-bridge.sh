@@ -26,14 +26,14 @@ PY
   fi
   umask 077
   cat > .env <<EOF
-SDR_BRIDGE_TOKEN=${TOKEN}
-SDR_BRIDGE_NAME=RTL-SDR Bridge
+HASDR_API_TOKEN=${TOKEN}
+HASDR_NAME=HASDR SDR Engine
 EOF
-  echo "Created .env with a random API token."
+  echo "Created .env with a random HASDR API token."
 fi
 
 docker compose up -d --build
 
 echo
-echo "RTL-SDR bridge is running on TCP/8099."
-echo "Use the SDR_BRIDGE_TOKEN from $ROOT/.env when adding the Home Assistant integration."
+echo "HASDR SDR Engine is running on TCP/8099 for advanced remote-host use."
+echo "Use HASDR_API_TOKEN from $ROOT/.env only when configuring Remote HASDR host mode."
