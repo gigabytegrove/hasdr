@@ -8,7 +8,7 @@ arch:
   - aarch64
 homeassistant: "2026.1.0"
 startup: application
-boot: auto
+boot: manual
 init: false
 usb: true
 udev: true
