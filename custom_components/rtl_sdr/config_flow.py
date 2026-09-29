@@ -27,7 +27,11 @@ from .const import (
     MODE_SUPERVISOR,
 )
 from .local import LocalRtlSdrClient, LocalRuntimeUnavailable
-from .runtime_bootstrap import RuntimeBootstrapError, async_prepare_local_runtime
+from .runtime_bootstrap import (
+    RuntimeBootstrapError,
+    async_prepare_local_runtime,
+    local_usb_access_available,
+)
 from .supervisor import HasdrSupervisorManager, SupervisorEngineError
 
 _LOGGER = logging.getLogger(__name__)
@@ -102,10 +106,18 @@ class RtlSdrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 },
             )
 
+        if not local_usb_access_available():
+            return self.async_show_form(
+                step_id="local",
+                data_schema=vol.Schema({}),
+                errors={"base": "usb_access_unavailable"},
+                description_placeholders={"backend": "embedded local HASDR runtime"},
+            )
+
         client: LocalRtlSdrClient | None = None
         try:
-            await async_prepare_local_runtime(self.hass.config.config_dir)
-            client = LocalRtlSdrClient()
+            runtime_info = await async_prepare_local_runtime(self.hass.config.config_dir)
+            client = LocalRtlSdrClient(runtime_info)
             await client.health()
         except (RuntimeBootstrapError, LocalRuntimeUnavailable) as err:
             _LOGGER.error("Unable to prepare local HASDR runtime: %s", err)
