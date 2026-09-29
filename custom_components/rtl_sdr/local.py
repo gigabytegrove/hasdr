@@ -19,7 +19,7 @@ class LocalRuntimeUnavailable(RuntimeError):
 class LocalRtlSdrClient:
     """Run the HASDR engine directly inside Home Assistant."""
 
-    def __init__(self) -> None:
+    def __init__(self, runtime_info: dict[str, Any] | None = None) -> None:
         missing = [command for command in ("rtl_power", "rtl_433") if shutil.which(command) is None]
         if missing:
             raise LocalRuntimeUnavailable(
@@ -30,6 +30,7 @@ class LocalRtlSdrClient:
         except RtlSdrLibraryError as err:
             raise LocalRuntimeUnavailable(str(err)) from err
 
+        self._runtime_info = runtime_info or {"source": "system"}
         self._subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
         self._manager = RadioManager(self._broadcast)
         self._started = False
@@ -65,6 +66,7 @@ class LocalRtlSdrClient:
             "instance_id": "local",
             "name": "Local RTL-SDR",
             "radios": len(self._manager.radios),
+            "runtime": self._runtime_info,
             "capabilities": [
                 "embedded_runtime",
                 "multi_sdr",
