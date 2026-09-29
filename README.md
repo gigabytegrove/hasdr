@@ -1,76 +1,101 @@
-# RTL-SDR for Home Assistant
+# HASDR — RTL-SDR for Home Assistant
 
-A local-first Home Assistant integration and companion bridge for one or more RTL-SDR receivers.
+HASDR brings one or more RTL-SDR receivers directly into Home Assistant for spectrum scanning, RF activity detection, and protocol decoding.
 
-The project deliberately separates USB/radio ownership from Home Assistant. The bridge owns the SDR hardware and native command-line tools; Home Assistant connects to the bridge over an authenticated local API and WebSocket.
+The normal setup is **local-first**. Users do not configure a bridge address, TCP port, or API token.
 
-## v0.1 capabilities
+## What HASDR does
 
-- Multiple simultaneous RTL-SDR receivers.
-- Receiver identity by RTL-SDR serial number when the serial is unique.
-- One-shot arbitrary range scans using `rtl_power`.
-- Full spectrum bins returned for each scan, plus peak frequency, peak power, median noise floor, and threshold crossings.
-- Continuous `rtl_433` decoding on one or multiple frequencies.
-- Decoder output is preserved as JSON and augmented with normalized frequency fields.
-- Frequency, RSSI, SNR, noise, protocol and model metadata from `rtl_433` when available.
-- Per-radio job locking so two processes cannot seize the same dongle.
-- Separate jobs can run simultaneously on different dongles.
-- Live WebSocket events from the bridge to Home Assistant.
-- Home Assistant sensors for radio status, active job, last spectrum peak/noise values and decoded packet information.
-- Home Assistant events for decoded packets, detected signals, completed scans and job errors.
-- API bearer-token authentication.
-- Docker deployment with no added Linux capabilities and a read-only filesystem.
+- Supports multiple RTL-SDR receivers at the same time.
+- Identifies receivers by unique RTL-SDR serial whenever possible.
+- Scans arbitrary frequency ranges with `rtl_power`.
+- Returns complete spectrum bins on demand.
+- Calculates peak frequency, peak power, median noise floor, and threshold crossings.
+- Runs continuous `rtl_433` decoding.
+- Preserves the original `rtl_433` JSON payload.
+- Adds normalized frequency metadata for Home Assistant.
+- Locks each receiver to one active job so two processes cannot seize the same dongle.
+- Allows independent jobs on different SDRs.
+- Publishes decoded packets and scan results as Home Assistant events.
+- Provides receiver devices, sensors, diagnostics, system health, and native Home Assistant actions.
+- Keeps transient RF detections out of the entity registry unless they represent an actual persistent receiver entity.
 
-## Architecture
+## Setup experience
+
+Install the integration and choose:
+
+### Local RTL-SDR hardware — recommended
+
+This is the normal option.
+
+#### Home Assistant OS / Supervised
+
+HASDR automatically:
+
+1. Adds the HASDR App repository to Supervisor when needed.
+2. Installs the **HASDR SDR Engine** App.
+3. Generates an internal API token.
+4. Configures the App.
+5. Gives the App raw USB and udev access.
+6. Starts the App.
+7. Marks it as managed by the HASDR config entry.
+8. Connects to it over Home Assistant's private App network.
+
+There is no host, port, or token configuration exposed to the user.
+
+The managed App does **not** publish its API port onto the host/LAN.
+
+#### Home Assistant Container
+
+HASDR runs the SDR engine directly inside the Home Assistant process when the container already provides:
+
+- `librtlsdr`
+- `rtl_power`
+- `rtl_433`
+- access to the RTL-SDR USB devices, normally through `/dev/bus/usb`
+
+No TCP bridge is used in this mode.
+
+Home Assistant Container intentionally does not receive the Docker socket or permission to create sibling containers. HASDR will therefore never silently grant itself host-level Docker control just to provision SDR dependencies.
+
+If the native runtime is missing, setup reports that explicitly instead of asking for bridge credentials.
+
+### Remote HASDR host — advanced
+
+This mode is for people who intentionally run the HASDR SDR Engine on another Linux host.
+
+Only this advanced setup asks for:
+
+- host
+- port
+- API token
+- optional HTTPS
+
+The standalone engine remains available under `bridge/` and `docker-compose.yml`.
+
+## Home Assistant installation
+
+For HACS/custom integration use, install the repository and restart Home Assistant.
+
+The integration domain is:
 
 ```text
-Home Assistant
-  custom_components/rtl_sdr
-          |
-          | HTTP + WebSocket, bearer token
-          v
-RTL-SDR Bridge :8099
-  |-- librtlsdr device enumeration
-  |-- rtl_power range scans
-  |-- rtl_433 protocol decoding
-  |
-  +-- RTL-SDR #1
-  +-- RTL-SDR #2
-  +-- RTL-SDR #N
+rtl_sdr
 ```
 
-## Why a bridge?
+Then go to:
 
-RTL-SDR access depends on native `librtlsdr`, libusb and native radio tools. Keeping those outside the Home Assistant process avoids polluting or destabilizing the Home Assistant Python environment and allows the radio host to be the same machine or a different Linux host.
+**Settings → Devices & services → Add integration → RTL-SDR**
 
-## Bridge installation
+Choose **Local RTL-SDR hardware (recommended)**.
 
-Requirements:
+## Multiple receivers
 
-- Linux host with Docker and Docker Compose v2.
-- One or more RTL-SDR compatible USB receivers.
+Each physical receiver becomes its own Home Assistant device.
 
-Clone the repository and run:
+Unique EEPROM serials are strongly recommended. Cheap RTL-SDRs often ship with the same default serial. Duplicate serials fall back to USB index, which can change after reboot.
 
-```bash
-git clone https://github.com/gigabytegrove/hasdr.git
-cd hasdr
-./scripts/install-bridge.sh
-```
-
-The installer creates a local `.env` containing a random 256-bit API token and starts the bridge on TCP port `8099`.
-
-To see the token:
-
-```bash
-cat .env
-```
-
-The token is deliberately excluded by `.gitignore`.
-
-### Duplicate factory serial numbers
-
-Many inexpensive RTL-SDR dongles ship with the same serial. The bridge will still expose those units by USB index, but USB index is not guaranteed to remain stable across reboots. For reliable multi-SDR operation, assign each dongle a unique serial with `rtl_eeprom`, for example:
+Example:
 
 ```bash
 rtl_eeprom -d 0 -s 00000001
@@ -79,77 +104,43 @@ rtl_eeprom -d 1 -s 00000002
 
 Unplug and reconnect the receivers after changing EEPROM values.
 
-## Home Assistant installation
-
-Copy:
-
-```text
-custom_components/rtl_sdr
-```
-
-to:
-
-```text
-/config/custom_components/rtl_sdr
-```
-
-Restart Home Assistant, then open **Settings > Devices & services > Add integration > RTL-SDR**.
-
-Enter:
-
-- Bridge host or IP
-- Port `8099`
-- `SDR_BRIDGE_TOKEN` from the bridge `.env`
-- HTTPS only when the bridge is placed behind a TLS reverse proxy
-
-Each attached receiver appears as a separate Home Assistant device.
-
-## Actions
+## Home Assistant actions
 
 ### `rtl_sdr.scan`
 
-Runs one spectrum sweep and returns its result asynchronously through `rtl_sdr_scan_complete`.
+Run a one-shot spectrum sweep.
 
 ```yaml
 action: rtl_sdr.scan
-config_entry_id: YOUR_CONFIG_ENTRY_ID
-radio_id: serial:00000001
-start_frequency_hz: 900000000
-end_frequency_hz: 930000000
-bin_width_hz: 25000
-integration_seconds: 1
-ppm: 0
-bias_tee: false
-threshold_db_above_noise: 10
+data:
+  config_entry_id: YOUR_CONFIG_ENTRY_ID
+  radio_id: serial:00000001
+  start_frequency_hz: 900000000
+  end_frequency_hz: 930000000
+  bin_width_hz: 25000
+  integration_seconds: 1
+  ppm: 0
+  bias_tee: false
+  threshold_db_above_noise: 10
 ```
 
-The completed event contains the complete list of spectrum bins plus derived values such as `peak_frequency_hz`, `peak_power_db`, `noise_floor_db`, `detection_threshold_db`, and `detections`.
+The scan engine records:
 
-`rtl_power` values are exposed as generic dB power readings. The integration does not label them calibrated dBm unless a future calibration layer explicitly provides that guarantee.
+- requested range
+- bin count
+- sample count
+- peak frequency
+- peak power
+- median noise floor
+- calculated detection threshold
+- threshold crossings
+- complete raw spectrum bins
 
-### `rtl_sdr.start_decoder`
-
-Starts continuous `rtl_433` decoding.
-
-```yaml
-action: rtl_sdr.start_decoder
-config_entry_id: YOUR_CONFIG_ENTRY_ID
-radio_id: serial:00000001
-frequencies_hz:
-  - 433920000
-sample_rate_hz: 250000
-hop_seconds: 15
-ppm: 0
-bias_tee: false
-```
-
-Multiple frequencies can be supplied. `rtl_433` will hop between them using `hop_seconds`.
-
-Optional `protocols` restricts decoding to specific `rtl_433 -R` protocol numbers.
+HASDR exposes `rtl_power` values as generic dB power readings. It does not pretend they are calibrated dBm without an explicit calibration layer.
 
 ### `rtl_sdr.get_last_scan`
 
-Returns the latest complete spectrum result as Home Assistant action response data. This is the supported way to retrieve the full `bins` and `detections` arrays without placing a potentially large spectrum payload on the Home Assistant event bus.
+Return the latest complete spectrum scan, including all raw bins.
 
 ```yaml
 action: rtl_sdr.get_last_scan
@@ -159,49 +150,129 @@ data:
 response_variable: spectrum
 ```
 
-The result is available under `spectrum.scan`.
+The full scan is returned under:
+
+```text
+spectrum.scan
+```
+
+Large raw spectra are retrieved this way rather than dumped onto Home Assistant's event bus.
+
+### `rtl_sdr.start_decoder`
+
+Start continuous `rtl_433` decoding.
+
+```yaml
+action: rtl_sdr.start_decoder
+data:
+  config_entry_id: YOUR_CONFIG_ENTRY_ID
+  radio_id: serial:00000001
+  frequencies_hz:
+    - 433920000
+  sample_rate_hz: 250000
+  hop_seconds: 15
+  ppm: 0
+  bias_tee: false
+```
+
+Multiple frequencies can be supplied. The decoder hops between them using `hop_seconds`.
+
+Optional `protocols` restricts decoding to specific `rtl_433 -R` protocol numbers.
 
 ### `rtl_sdr.stop`
 
-Stops the active process on one receiver.
+Stop the active job on one receiver.
 
 ```yaml
 action: rtl_sdr.stop
-config_entry_id: YOUR_CONFIG_ENTRY_ID
-radio_id: serial:00000001
+data:
+  config_entry_id: YOUR_CONFIG_ENTRY_ID
+  radio_id: serial:00000001
 ```
 
 ### `rtl_sdr.refresh_radios`
 
-Forces immediate hardware re-enumeration. The bridge also checks for hot-plug changes automatically.
+Force immediate receiver re-enumeration.
 
 ## Home Assistant events
 
 ### `rtl_sdr_decoded_packet`
 
-Contains the untouched `rtl_433` JSON under `packet` with normalized `frequency_hz` and `frequency_mhz` added when frequency metadata exists.
+Fired for decoded `rtl_433` packets. The original decoder JSON is preserved under `packet`.
+
+When frequency metadata exists HASDR also adds:
+
+- `frequency_hz`
+- `frequency_mhz`
 
 ### `rtl_sdr_signal_detected`
 
-Fired for decoded RF packets. Spectrum-scan threshold crossings are included in the `rtl_sdr_scan_complete` result.
+Fired for decoded RF packets.
 
 ### `rtl_sdr_scan_complete`
 
-Contains a bounded summary of the completed one-shot spectrum result. Use `rtl_sdr.get_last_scan` to retrieve the complete raw bin and detection arrays.
+Fired after a spectrum scan with a bounded summary. Use `rtl_sdr.get_last_scan` for the complete bin array.
 
 ### `rtl_sdr_job_error`
 
-Contains subprocess or receiver errors without hiding the native tool's diagnostic text.
+Fired when the SDR process or hardware reports an error. Native diagnostic text is preserved.
 
-## Bridge API
+## Managed HASDR SDR Engine
 
-All endpoints require:
+The Supervisor App lives in:
 
 ```text
-Authorization: Bearer <SDR_BRIDGE_TOKEN>
+hasdr_engine/
 ```
 
-Endpoints:
+It is a valid Home Assistant App repository entry and uses:
+
+```yaml
+usb: true
+udev: true
+```
+
+The App installs the native RTL-SDR runtime inside its own container and exposes TCP 8099 only on Home Assistant's internal App network.
+
+The integration provisions it through the Supervisor API and marks it as system-managed by the corresponding config entry.
+
+## Embedded Container runtime
+
+When Home Assistant is running as a normal Docker container and the required native runtime is already present, HASDR uses:
+
+```text
+custom_components/rtl_sdr/runtime/
+```
+
+directly.
+
+The embedded runtime and managed App use the same radio/job model:
+
+```text
+RadioManager
+  ├── receiver enumeration
+  ├── per-radio locking
+  ├── rtl_power jobs
+  ├── rtl_433 jobs
+  ├── spectrum parsing
+  └── decoded packet normalization
+```
+
+This is deliberate: the Home Assistant layer does not need different scanner behavior depending on the installation type.
+
+## Advanced standalone engine
+
+The standalone remote-host deployment remains under:
+
+```text
+bridge/
+docker-compose.yml
+scripts/install-bridge.sh
+```
+
+It is not required for normal Home Assistant OS/Supervised use.
+
+The remote API includes:
 
 ```text
 GET  /v1/health
@@ -216,19 +287,43 @@ POST /v1/radios/{radio_id}/stop
 GET  /v1/ws
 ```
 
-The last 5 completed scans per radio are retained in bridge memory and available from the history endpoint. They are intentionally not persisted to disk in v0.1.
+Remote APIs require:
+
+```text
+Authorization: Bearer <HASDR_API_TOKEN>
+```
+
+The compatibility environment variable `SDR_BRIDGE_TOKEN` is still accepted by the engine, but new deployments should use `HASDR_API_TOKEN`.
 
 ## Security
 
-- The API refuses to start without a token of at least 16 characters.
-- Tokens are compared with constant-time comparison.
-- The bridge container runs read-only, drops all Linux capabilities, enables `no-new-privileges`, and receives only USB device-node access through Docker's USB cgroup rule.
-- The bridge does not expose raw shell execution through its API.
-- Request ranges, bin counts, frequency counts and other user-controlled values are bounded.
-- Never expose port 8099 directly to the public internet. Use a private LAN/VPN or a properly authenticated TLS reverse proxy.
+- Normal local setup does not expose an SDR API to the LAN.
+- Supervisor-managed mode communicates over Home Assistant's private App network.
+- A random 256-bit API token is generated by the integration for the managed App.
+- The managed token is not requested from the user.
+- Direct Container mode uses in-process communication rather than TCP.
+- Remote mode requires bearer-token authentication.
+- Tokens are compared with constant-time comparison by the engine.
+- API input ranges, frequency counts, and spectrum-bin counts are bounded.
+- One receiver cannot be seized by two simultaneous jobs.
+- HASDR is receive-only.
+- HASDR does not attempt to decrypt protected communications.
+- Home Assistant Container mode does not require or request access to the Docker socket.
 
-## Current scope
+## Repository layout
 
-v0.1 is receive-only. It does not transmit RF. It does not attempt to decrypt protected communications. General spectrum discovery and supported unencrypted protocol decoding are the intended use cases.
+```text
+custom_components/rtl_sdr/   Home Assistant integration
+hasdr_engine/                Supervisor-managed SDR Engine App
+bridge/                      advanced standalone/remote engine
+tests/                       backend regression tests
+docker-compose.yml           advanced remote deployment
+repository.yaml              Home Assistant App repository metadata
+hacs.json                    HACS metadata
+```
 
-Potential later additions include waterfall history, saved scan profiles, automatic entity promotion for stable decoded transmitter IDs, raw IQ capture, `rtl_fm`, ADS-B backends, SoapySDR hardware and additional protocol-specific decoders.
+## Current version
+
+**0.2.0**
+
+The 0.2 architecture changes HASDR from a manually configured bridge integration to a local-first Home Assistant integration with an automatically managed Supervisor backend and an embedded Container backend.
