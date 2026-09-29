@@ -1,0 +1,23 @@
+services:
+  rtl-sdr-bridge:
+    build:
+      context: ./bridge
+    container_name: rtl-sdr-bridge
+    restart: unless-stopped
+    ports:
+      - "${SDR_BRIDGE_BIND:-0.0.0.0}:8099:8099"
+    environment:
+      SDR_BRIDGE_TOKEN: "${SDR_BRIDGE_TOKEN:?Set SDR_BRIDGE_TOKEN in .env}"
+      SDR_BRIDGE_NAME: "${SDR_BRIDGE_NAME:-RTL-SDR Bridge}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - "c 189:* rmw"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
