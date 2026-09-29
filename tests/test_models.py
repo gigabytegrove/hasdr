@@ -1,10 +1,4 @@
-from pathlib import Path
-import sys
-
 import pytest
-
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "bridge"))
 
 from sdr_bridge.models import Radio, ValidationError, optional_float, require_int
 
