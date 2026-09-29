@@ -27,6 +27,7 @@ from .const import (
     MODE_SUPERVISOR,
 )
 from .local import LocalRtlSdrClient, LocalRuntimeUnavailable
+from .runtime_bootstrap import RuntimeBootstrapError, async_prepare_local_runtime
 from .supervisor import HasdrSupervisorManager, SupervisorEngineError
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,14 +50,19 @@ class RtlSdrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         session = async_get_clientsession(self.hass)
         supervisor = HasdrSupervisorManager(session)
 
-        if supervisor.available:
-            if user_input is None:
-                return self.async_show_form(
-                    step_id="local",
-                    data_schema=vol.Schema({}),
-                    description_placeholders={"backend": "Home Assistant managed HASDR SDR Engine"},
-                )
+        if user_input is None:
+            backend = (
+                "Home Assistant managed HASDR SDR Engine"
+                if supervisor.available
+                else "embedded local HASDR runtime"
+            )
+            return self.async_show_form(
+                step_id="local",
+                data_schema=vol.Schema({}),
+                description_placeholders={"backend": backend},
+            )
 
+        if supervisor.available:
             api_token = supervisor.generate_api_token()
             try:
                 addon_slug, hostname = await supervisor.ensure_engine(api_token)
@@ -80,7 +86,9 @@ class RtlSdrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     step_id="local",
                     data_schema=vol.Schema({}),
                     errors={"base": "engine_install_failed"},
-                    description_placeholders={"backend": "Home Assistant managed HASDR SDR Engine"},
+                    description_placeholders={
+                        "backend": "Home Assistant managed HASDR SDR Engine"
+                    },
                 )
 
             await self.async_set_unique_id("supervisor-managed")
@@ -94,19 +102,18 @@ class RtlSdrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 },
             )
 
+        client: LocalRtlSdrClient | None = None
         try:
+            await async_prepare_local_runtime(self.hass.config.config_dir)
             client = LocalRtlSdrClient()
-            health = await client.health()
-            radios = await client.radios()
-        except LocalRuntimeUnavailable as err:
+            await client.health()
+        except (RuntimeBootstrapError, LocalRuntimeUnavailable) as err:
+            _LOGGER.error("Unable to prepare local HASDR runtime: %s", err)
             return self.async_show_form(
                 step_id="local",
                 data_schema=vol.Schema({}),
                 errors={"base": "local_runtime_unavailable"},
-                description_placeholders={
-                    "backend": "embedded local HASDR runtime",
-                    "reason": str(err),
-                },
+                description_placeholders={"backend": "embedded local HASDR runtime"},
             )
         except Exception as err:
             _LOGGER.exception("Unable to initialize local HASDR runtime")
@@ -114,25 +121,11 @@ class RtlSdrConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="local",
                 data_schema=vol.Schema({}),
                 errors={"base": "cannot_start_local"},
-                description_placeholders={
-                    "backend": "embedded local HASDR runtime",
-                    "reason": str(err),
-                },
+                description_placeholders={"backend": "embedded local HASDR runtime"},
             )
         finally:
-            if "client" in locals():
+            if client is not None:
                 await client.async_close()
-
-        if user_input is None:
-            return self.async_show_form(
-                step_id="local",
-                data_schema=vol.Schema({}),
-                description_placeholders={
-                    "backend": "embedded local HASDR runtime",
-                    "radio_count": str(len(radios.get("radios", []))),
-                    "version": str(health.get("version", "unknown")),
-                },
-            )
 
         await self.async_set_unique_id("local")
         self._abort_if_unique_id_configured()
