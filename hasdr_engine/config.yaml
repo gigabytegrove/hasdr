@@ -1,5 +1,5 @@
 name: HASDR SDR Engine
-version: "0.2.1"
+version: "0.3.0"
 slug: hasdr_engine
 description: Managed RTL-SDR hardware engine for the HASDR Home Assistant integration
 url: https://github.com/gigabytegrove/hasdr

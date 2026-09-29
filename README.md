@@ -387,6 +387,6 @@ hacs.json                    HACS metadata
 
 ## Current version
 
-**0.2.1**
+**0.3.0**
 
-The 0.2 architecture changes HASDR from a manually configured bridge integration to a local-first Home Assistant integration with an automatically managed Supervisor backend and an embedded Container backend. Version 0.2.1 also fixes the HACS update path by publishing validated versions as GitHub releases.
+The 0.2 architecture changed HASDR from a manually configured bridge integration to a local-first Home Assistant integration with an automatically managed Supervisor backend and an embedded Container backend. Version 0.2.1 fixed the HACS update path by publishing validated versions as GitHub releases. Version 0.3.0 adds persistent per-receiver sweep controls, one-click range sweeps, a true generic fixed-frequency monitor, live signal metrics, and one-click stop controls directly on each Home Assistant receiver device.
