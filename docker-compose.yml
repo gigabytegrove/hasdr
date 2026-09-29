@@ -1,14 +1,14 @@
 services:
-  rtl-sdr-bridge:
+  hasdr-engine:
     build:
       context: ./bridge
-    container_name: rtl-sdr-bridge
+    container_name: hasdr-engine
     restart: unless-stopped
     ports:
-      - "${SDR_BRIDGE_BIND:-0.0.0.0}:8099:8099"
+      - "${HASDR_BIND:-0.0.0.0}:8099:8099"
     environment:
-      SDR_BRIDGE_TOKEN: "${SDR_BRIDGE_TOKEN:?Set SDR_BRIDGE_TOKEN in .env}"
-      SDR_BRIDGE_NAME: "${SDR_BRIDGE_NAME:-RTL-SDR Bridge}"
+      HASDR_API_TOKEN: "${HASDR_API_TOKEN:?Set HASDR_API_TOKEN in .env}"
+      HASDR_NAME: "${HASDR_NAME:-HASDR SDR Engine}"
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
     volumes:
       - /dev/bus/usb:/dev/bus/usb
