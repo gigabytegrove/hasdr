@@ -1,0 +1,112 @@
+name: Publish release
+
+on:
+  workflow_run:
+    workflows:
+      - Validate
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Skip stale validation runs
+        id: current
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          CURRENT="$(git rev-parse origin/main)"
+          VALIDATED="${{ github.event.workflow_run.head_sha }}"
+          if [[ "$CURRENT" != "$VALIDATED" ]]; then
+            echo "Current main is $CURRENT; validated commit was $VALIDATED."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read and verify version
+        if: steps.current.outputs.publish == 'true'
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(
+              Path("custom_components/rtl_sdr/manifest.json").read_text()
+          )
+          print(manifest["version"])
+          PY
+          )"
+
+          python3 - "$VERSION" <<'PY'
+          import json
+          from pathlib import Path
+          import re
+          import sys
+          import yaml
+
+          version = sys.argv[1]
+
+          manifest = json.loads(
+              Path("custom_components/rtl_sdr/manifest.json").read_text()
+          )
+          if manifest["version"] != version:
+              raise SystemExit("Integration manifest version mismatch")
+
+          app = yaml.safe_load(Path("hasdr_engine/config.yaml").read_text())
+          if str(app["version"]) != version:
+              raise SystemExit("Managed App version mismatch")
+
+          const_text = Path("custom_components/rtl_sdr/const.py").read_text()
+          engine_text = Path("bridge/sdr_bridge/main.py").read_text()
+          managed_text = Path("hasdr_engine/sdr_bridge/main.py").read_text()
+
+          for label, text in (
+              ("integration constants", const_text),
+              ("remote engine", engine_text),
+              ("managed engine", managed_text),
+          ):
+              match = re.search(r'^VERSION = "([^"]+)"$', text, re.MULTILINE)
+              if not match or match.group(1) != version:
+                  raise SystemExit(f"{label} version mismatch")
+          PY
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        if: steps.current.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          VALIDATED_SHA: ${{ github.event.workflow_run.head_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists."
+            exit 0
+          fi
+
+          gh release create "$VERSION" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$VALIDATED_SHA" \
+            --title "HASDR $VERSION" \
+            --generate-notes \
+            --latest
