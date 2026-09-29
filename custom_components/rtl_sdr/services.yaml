@@ -1,0 +1,168 @@
+scan:
+  name: Scan frequency range
+  description: Run a one-shot RTL power spectrum scan on a receiver.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: rtl_sdr
+    radio_id:
+      required: true
+      example: serial:00000001
+      selector:
+        text:
+    start_frequency_hz:
+      required: true
+      example: 900000000
+      selector:
+        number:
+          min: 1
+          max: 6000000000
+          step: 1
+          mode: box
+    end_frequency_hz:
+      required: true
+      example: 930000000
+      selector:
+        number:
+          min: 2
+          max: 6000000000
+          step: 1
+          mode: box
+    bin_width_hz:
+      default: 25000
+      selector:
+        number:
+          min: 1
+          max: 2800000
+          step: 1
+          mode: box
+    integration_seconds:
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 3600
+          step: 1
+    ppm:
+      default: 0
+      selector:
+        number:
+          min: -1000
+          max: 1000
+          step: 1
+    gain_db:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.1
+          mode: box
+    bias_tee:
+      default: false
+      selector:
+        boolean:
+    threshold_db_above_noise:
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.5
+
+start_decoder:
+  name: Start protocol decoder
+  description: Start continuous rtl_433 JSON decoding on one or more frequencies.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: rtl_sdr
+    radio_id:
+      required: true
+      example: serial:00000001
+      selector:
+        text:
+    frequencies_hz:
+      required: true
+      example: [433920000]
+      selector:
+        object:
+    sample_rate_hz:
+      default: 250000
+      selector:
+        number:
+          min: 10000
+          max: 3200000
+          step: 1000
+          mode: box
+    hop_seconds:
+      default: 15
+      selector:
+        number:
+          min: 1
+          max: 3600
+          step: 1
+    ppm:
+      default: 0
+      selector:
+        number:
+          min: -1000
+          max: 1000
+          step: 1
+    gain_db:
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 0.1
+          mode: box
+    bias_tee:
+      default: false
+      selector:
+        boolean:
+    protocols:
+      description: Optional rtl_433 protocol numbers to enable. Leave empty for defaults.
+      example: [1, 8, 43]
+      selector:
+        object:
+
+get_last_scan:
+  name: Get last spectrum scan
+  description: Return the most recent complete spectrum result, including raw bins, for a receiver.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: rtl_sdr
+    radio_id:
+      required: true
+      selector:
+        text:
+
+stop:
+  name: Stop receiver job
+  description: Stop the active scan or decoder on a receiver.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: rtl_sdr
+    radio_id:
+      required: true
+      selector:
+        text:
+
+refresh_radios:
+  name: Refresh receivers
+  description: Re-enumerate RTL-SDR devices attached to the bridge host.
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: rtl_sdr
