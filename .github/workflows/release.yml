@@ -77,11 +77,13 @@ jobs:
               raise SystemExit("Managed App version mismatch")
 
           const_text = Path("custom_components/rtl_sdr/const.py").read_text()
+          local_text = Path("custom_components/rtl_sdr/local.py").read_text()
           engine_text = Path("bridge/sdr_bridge/main.py").read_text()
           managed_text = Path("hasdr_engine/sdr_bridge/main.py").read_text()
 
           for label, text in (
               ("integration constants", const_text),
+              ("embedded runtime", local_text),
               ("remote engine", engine_text),
               ("managed engine", managed_text),
           ):
