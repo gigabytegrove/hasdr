@@ -41,7 +41,8 @@
       "unknown": "Unexpected error while connecting to the HASDR Engine.",
       "engine_install_failed": "Home Assistant could not install or start the managed HASDR SDR Engine.",
       "local_runtime_unavailable": "HASDR could not prepare the local RTL-SDR runtime. Check the Home Assistant log for the exact signed-package or hardware-access error.",
-      "cannot_start_local": "The embedded HASDR runtime could not start."
+      "cannot_start_local": "The embedded HASDR runtime could not start.",
+      "usb_access_unavailable": "Home Assistant cannot access the USB bus. Map /dev/bus/usb into the Home Assistant container, restart Home Assistant, and try again."
     },
     "abort": {
       "already_configured": "This RTL-SDR backend is already configured."
@@ -224,10 +225,11 @@
   },
   "system_health": {
     "info": {
-      "configured_bridges": "Configured bridges",
-      "online_bridges": "Online bridges",
+      "configured_backends": "Configured backends",
+      "online_backends": "Online backends",
       "detected_radios": "Detected receivers",
-      "bridge_versions": "Bridge versions"
+      "engine_versions": "Engine versions",
+      "backend_modes": "Backend modes"
     }
   }
 }
