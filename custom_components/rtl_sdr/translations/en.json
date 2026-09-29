@@ -3,29 +3,48 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to RTL-SDR Bridge",
-        "description": "Connect Home Assistant to the local RTL-SDR bridge service.",
+        "title": "Set up RTL-SDR",
+        "description": "Choose how HASDR should access your RTL-SDR hardware.",
+        "menu_options": {
+          "local": "Local RTL-SDR hardware (recommended)",
+          "remote": "Remote HASDR host (advanced)"
+        },
+        "menu_option_descriptions": {
+          "local": "Use receivers attached to this Home Assistant system. On Home Assistant OS/Supervised, HASDR installs and manages its SDR Engine automatically.",
+          "remote": "Connect to a HASDR Engine running on another machine. Host, port, and API token settings are only needed for this advanced mode."
+        }
+      },
+      "local": {
+        "title": "Local RTL-SDR hardware",
+        "description": "HASDR will use the {backend}. No bridge address, port, or API token needs to be configured manually."
+      },
+      "remote": {
+        "title": "Remote HASDR host",
+        "description": "Advanced mode for an SDR Engine running on another machine.",
         "data": {
-          "host": "Bridge host",
-          "port": "Bridge port",
+          "host": "HASDR host",
+          "port": "HASDR port",
           "token": "API token",
           "use_ssl": "Use HTTPS"
         },
         "data_description": {
-          "host": "Hostname or IP address of the machine running the RTL-SDR bridge.",
-          "port": "TCP port used by the bridge. The default is 8099.",
-          "token": "Bearer token configured as SDR_BRIDGE_TOKEN on the bridge.",
-          "use_ssl": "Enable when the bridge is behind a TLS reverse proxy."
+          "host": "Hostname or IP address of the remote HASDR Engine.",
+          "port": "TCP port used by the remote HASDR Engine. The default is 8099.",
+          "token": "Bearer token configured on the remote HASDR Engine.",
+          "use_ssl": "Enable only when the remote HASDR Engine is behind a TLS reverse proxy."
         }
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect to the RTL-SDR bridge.",
-      "invalid_auth": "The RTL-SDR bridge rejected the API token.",
-      "unknown": "Unexpected error while connecting to the RTL-SDR bridge."
+      "cannot_connect": "Unable to connect to the remote HASDR Engine.",
+      "invalid_auth": "The remote HASDR Engine rejected the API token.",
+      "unknown": "Unexpected error while connecting to the HASDR Engine.",
+      "engine_install_failed": "Home Assistant could not install or start the managed HASDR SDR Engine.",
+      "local_runtime_unavailable": "The embedded RTL-SDR runtime is not available in this Home Assistant container. HASDR requires rtl_power, rtl_433, and librtlsdr for direct Container mode.",
+      "cannot_start_local": "The embedded HASDR runtime could not start."
     },
     "abort": {
-      "already_configured": "This RTL-SDR bridge is already configured."
+      "already_configured": "This RTL-SDR backend is already configured."
     }
   },
   "services": {
@@ -166,8 +185,8 @@
     "invalid_frequency_range": {
       "message": "The end frequency must be greater than the start frequency."
     },
-    "bridge_request_failed": {
-      "message": "The RTL-SDR bridge request failed: {error}"
+    "backend_request_failed": {
+      "message": "The HASDR backend request failed: {error}"
     }
   },
   "entity": {
