@@ -6,6 +6,8 @@ import asyncio
 from collections import deque
 import json
 import logging
+import os
+from pathlib import Path
 import signal
 import time
 import uuid
@@ -15,6 +17,31 @@ from .models import Job, Radio, ValidationError, optional_float, require_int
 from .rtl import RtlSdrLibrary, normalize_rtl433_packet, parse_rtl_power_csv
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _runtime_command(name: str) -> str:
+    runtime_root = os.environ.get("HASDR_RUNTIME_ROOT")
+    if runtime_root:
+        candidate = Path(runtime_root) / "usr" / "bin" / name
+        if candidate.is_file():
+            return str(candidate)
+    return name
+
+
+def _runtime_env() -> dict[str, str] | None:
+    runtime_root = os.environ.get("HASDR_RUNTIME_ROOT")
+    if not runtime_root:
+        return None
+
+    env = os.environ.copy()
+    library_paths = [
+        str(Path(runtime_root) / "lib"),
+        str(Path(runtime_root) / "usr" / "lib"),
+    ]
+    if env.get("LD_LIBRARY_PATH"):
+        library_paths.append(env["LD_LIBRARY_PATH"])
+    env["LD_LIBRARY_PATH"] = ":".join(library_paths)
+    return env
 
 
 class RadioNotFoundError(KeyError):
@@ -135,7 +162,7 @@ class RadioManager:
     async def _run_scan(self, radio: Radio, job: Job) -> None:
         p = job.parameters
         cmd = [
-            "rtl_power",
+            _runtime_command("rtl_power"),
             "-d",
             radio.rtl_power_selector,
             "-f",
@@ -157,6 +184,7 @@ class RadioManager:
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_runtime_env(),
             )
             self._processes[radio.id] = proc
             job.pid = proc.pid
@@ -263,7 +291,7 @@ class RadioManager:
     async def _run_decoder(self, radio: Radio, job: Job) -> None:
         p = job.parameters
         cmd = [
-            "rtl_433",
+            _runtime_command("rtl_433"),
             "-d",
             radio.rtl_433_selector,
             "-F",
@@ -299,6 +327,7 @@ class RadioManager:
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=_runtime_env(),
             )
             self._processes[radio.id] = proc
             job.pid = proc.pid
