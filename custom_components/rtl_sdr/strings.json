@@ -10,7 +10,7 @@
           "remote": "Remote HASDR host (advanced)"
         },
         "menu_option_descriptions": {
-          "local": "Use receivers attached to this Home Assistant system. On Home Assistant OS/Supervised, HASDR installs and manages its SDR Engine automatically.",
+          "local": "Use receivers attached to this Home Assistant system. HASDR manages the required SDR runtime automatically on supported Home Assistant installations.",
           "remote": "Connect to a HASDR Engine running on another machine. Host, port, and API token settings are only needed for this advanced mode."
         }
       },
@@ -40,7 +40,7 @@
       "invalid_auth": "The remote HASDR Engine rejected the API token.",
       "unknown": "Unexpected error while connecting to the HASDR Engine.",
       "engine_install_failed": "Home Assistant could not install or start the managed HASDR SDR Engine.",
-      "local_runtime_unavailable": "The embedded RTL-SDR runtime is not available in this Home Assistant container. HASDR requires rtl_power, rtl_433, and librtlsdr for direct Container mode.",
+      "local_runtime_unavailable": "HASDR could not prepare the local RTL-SDR runtime. Check the Home Assistant log for the exact signed-package or hardware-access error.",
       "cannot_start_local": "The embedded HASDR runtime could not start."
     },
     "abort": {
