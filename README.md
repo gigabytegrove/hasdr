@@ -275,7 +275,7 @@ The standalone remote-host deployment remains under:
 ```text
 bridge/
 docker-compose.yml
-scripts/install-bridge.sh
+scripts/install-remote-engine.sh
 ```
 
 It is not required for normal Home Assistant OS/Supervised use.
@@ -326,6 +326,7 @@ The compatibility environment variable `SDR_BRIDGE_TOKEN` is still accepted by t
 custom_components/rtl_sdr/   Home Assistant integration
 hasdr_engine/                Supervisor-managed SDR Engine App
 bridge/                      advanced standalone/remote engine
+scripts/install-remote-engine.sh  advanced remote installer
 tests/                       backend regression tests
 docker-compose.yml           advanced remote deployment
 repository.yaml              Home Assistant App repository metadata
