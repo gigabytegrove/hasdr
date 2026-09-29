@@ -15,18 +15,47 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install pytest pytest-asyncio ruff aiohttp
+      - run: pip install pytest pytest-asyncio ruff aiohttp pyyaml
       - run: ruff check bridge tests
       - run: pytest -q
-      - run: python -m compileall -q custom_components bridge
+      - run: python -m compileall -q custom_components bridge hasdr_engine/sdr_bridge
+      - name: Validate JSON and YAML metadata
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import yaml
+
+          for path in [
+              Path("hacs.json"),
+              Path("custom_components/rtl_sdr/manifest.json"),
+              Path("custom_components/rtl_sdr/strings.json"),
+              Path("custom_components/rtl_sdr/translations/en.json"),
+          ]:
+              json.loads(path.read_text())
+
+          for path in [
+              Path("repository.yaml"),
+              Path("hasdr_engine/config.yaml"),
+              Path("hasdr_engine/translations/en.yaml"),
+          ]:
+              yaml.safe_load(path.read_text())
+          PY
 
   docker:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - context: ./bridge
+            tag: hasdr-remote:test
+          - context: ./hasdr_engine
+            tag: hasdr-engine-app:test
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
-          context: ./bridge
+          context: ${{ matrix.target.context }}
           push: false
-          tags: rtl-sdr-bridge:test
+          tags: ${{ matrix.target.tag }}
