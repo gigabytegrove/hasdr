@@ -17,14 +17,20 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import RtlSdrApiAuthError, RtlSdrApiClient, RtlSdrApiConnectionError, RtlSdrApiError
 from .const import (
+    CONF_ADDON_SLUG,
+    CONF_MODE,
     CONF_PORT,
     CONF_TOKEN,
     CONF_USE_SSL,
+    DEFAULT_PORT,
     DOMAIN,
     EVENT_DECODED_PACKET,
     EVENT_JOB_ERROR,
     EVENT_SCAN_COMPLETE,
     EVENT_SIGNAL_DETECTED,
+    MODE_LOCAL,
+    MODE_REMOTE,
+    MODE_SUPERVISOR,
     PLATFORMS,
     SERVICE_GET_LAST_SCAN,
     SERVICE_REFRESH_RADIOS,
@@ -33,17 +39,20 @@ from .const import (
     SERVICE_STOP,
 )
 from .coordinator import RtlSdrCoordinator
+from .local import LocalRtlSdrClient, LocalRuntimeUnavailable
+from .supervisor import HasdrSupervisorManager, SupervisorEngineError
 
 
 @dataclass(slots=True)
 class RtlSdrRuntimeData:
     """Runtime state owned by one config entry."""
 
-    client: RtlSdrApiClient
+    client: Any
     coordinator: RtlSdrCoordinator
     health: dict[str, Any]
+    mode: str
     stop_event: asyncio.Event
-    websocket_task: asyncio.Task[Any]
+    event_task: asyncio.Task[Any]
 
 
 type RtlSdrConfigEntry = ConfigEntry[RtlSdrRuntimeData]
@@ -107,6 +116,15 @@ def _entry_runtime(hass: HomeAssistant, entry_id: str) -> RtlSdrRuntimeData:
     return typed_entry.runtime_data
 
 
+def _service_error(err: Exception) -> ServiceValidationError:
+    return ServiceValidationError(
+        str(err),
+        translation_domain=DOMAIN,
+        translation_key="backend_request_failed",
+        translation_placeholders={"error": str(err)},
+    )
+
+
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register integration-wide actions."""
     if hass.services.has_service(DOMAIN, SERVICE_SCAN):
@@ -124,13 +142,8 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
             )
         try:
             await runtime.client.start_scan(radio_id, data)
-        except RtlSdrApiError as err:
-            raise ServiceValidationError(
-                str(err),
-                translation_domain=DOMAIN,
-                translation_key="bridge_request_failed",
-                translation_placeholders={"error": str(err)},
-            ) from err
+        except (RtlSdrApiError, RuntimeError, ValueError) as err:
+            raise _service_error(err) from err
         await runtime.coordinator.async_request_refresh()
 
     async def handle_start_decoder(call: ServiceCall) -> None:
@@ -139,13 +152,8 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         radio_id = data.pop("radio_id")
         try:
             await runtime.client.start_decoder(radio_id, data)
-        except RtlSdrApiError as err:
-            raise ServiceValidationError(
-                str(err),
-                translation_domain=DOMAIN,
-                translation_key="bridge_request_failed",
-                translation_placeholders={"error": str(err)},
-            ) from err
+        except (RtlSdrApiError, RuntimeError, ValueError) as err:
+            raise _service_error(err) from err
         await runtime.coordinator.async_request_refresh()
 
     async def handle_stop(call: ServiceCall) -> None:
@@ -153,39 +161,24 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         runtime = _entry_runtime(hass, data["config_entry_id"])
         try:
             await runtime.client.stop(data["radio_id"])
-        except RtlSdrApiError as err:
-            raise ServiceValidationError(
-                str(err),
-                translation_domain=DOMAIN,
-                translation_key="bridge_request_failed",
-                translation_placeholders={"error": str(err)},
-            ) from err
+        except (RtlSdrApiError, RuntimeError, ValueError) as err:
+            raise _service_error(err) from err
         await runtime.coordinator.async_request_refresh()
 
     async def handle_refresh(call: ServiceCall) -> None:
         runtime = _entry_runtime(hass, call.data["config_entry_id"])
         try:
             await runtime.client.refresh_radios()
-        except RtlSdrApiError as err:
-            raise ServiceValidationError(
-                str(err),
-                translation_domain=DOMAIN,
-                translation_key="bridge_request_failed",
-                translation_placeholders={"error": str(err)},
-            ) from err
+        except (RtlSdrApiError, RuntimeError, ValueError) as err:
+            raise _service_error(err) from err
         await runtime.coordinator.async_request_refresh()
 
     async def handle_get_last_scan(call: ServiceCall) -> ServiceResponse:
         runtime = _entry_runtime(hass, call.data["config_entry_id"])
         try:
             latest = await runtime.client.latest_scan(call.data["radio_id"])
-        except RtlSdrApiError as err:
-            raise ServiceValidationError(
-                str(err),
-                translation_domain=DOMAIN,
-                translation_key="bridge_request_failed",
-                translation_placeholders={"error": str(err)},
-            ) from err
+        except (RtlSdrApiError, RuntimeError, ValueError) as err:
+            raise _service_error(err) from err
         return {"scan": latest.get("scan")}
 
     hass.services.async_register(DOMAIN, SERVICE_SCAN, handle_scan, schema=SCAN_SCHEMA)
@@ -202,9 +195,51 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bool:
-    """Set up a bridge config entry."""
+async def _async_create_backend(
+    hass: HomeAssistant,
+    entry: RtlSdrConfigEntry,
+) -> tuple[Any, dict[str, Any], str]:
     session = async_get_clientsession(hass)
+    mode = entry.data.get(CONF_MODE)
+    if mode is None:
+        mode = MODE_REMOTE if CONF_HOST in entry.data else MODE_LOCAL
+
+    if mode == MODE_LOCAL:
+        try:
+            client = LocalRtlSdrClient()
+            health = await client.health()
+        except LocalRuntimeUnavailable as err:
+            raise ConfigEntryNotReady(
+                f"Local HASDR runtime is unavailable: {err}"
+            ) from err
+        return client, health, mode
+
+    if mode == MODE_SUPERVISOR:
+        supervisor = HasdrSupervisorManager(session)
+        if not supervisor.available:
+            raise ConfigEntryNotReady("Home Assistant Supervisor is unavailable")
+
+        token = entry.data[CONF_TOKEN]
+        try:
+            addon_slug, hostname = await supervisor.ensure_engine(token)
+            if entry.data.get(CONF_ADDON_SLUG) != addon_slug:
+                hass.config_entries.async_update_entry(
+                    entry,
+                    data={**entry.data, CONF_ADDON_SLUG: addon_slug},
+                )
+            await supervisor.mark_system_managed(addon_slug, entry.entry_id)
+            client = RtlSdrApiClient(session, hostname, DEFAULT_PORT, token, False)
+            health = await client.health()
+        except SupervisorEngineError as err:
+            raise ConfigEntryNotReady(
+                f"Unable to provision the managed HASDR SDR Engine: {err}"
+            ) from err
+        except RtlSdrApiAuthError as err:
+            raise ConfigEntryAuthFailed("Managed HASDR SDR Engine rejected its internal token") from err
+        except RtlSdrApiError as err:
+            raise ConfigEntryNotReady(f"Managed HASDR SDR Engine is unavailable: {err}") from err
+        return client, health, mode
+
     client = RtlSdrApiClient(
         session,
         entry.data[CONF_HOST],
@@ -212,15 +247,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bo
         entry.data[CONF_TOKEN],
         entry.data.get(CONF_USE_SSL, False),
     )
-
     try:
         health = await client.health()
     except RtlSdrApiAuthError as err:
-        raise ConfigEntryAuthFailed("RTL-SDR bridge rejected the API token") from err
+        raise ConfigEntryAuthFailed("Remote HASDR Engine rejected the API token") from err
     except RtlSdrApiConnectionError as err:
-        raise ConfigEntryNotReady(f"Unable to reach RTL-SDR bridge: {err}") from err
+        raise ConfigEntryNotReady(f"Unable to reach remote HASDR Engine: {err}") from err
     except RtlSdrApiError as err:
-        raise ConfigEntryNotReady(f"RTL-SDR bridge setup failed: {err}") from err
+        raise ConfigEntryNotReady(f"Remote HASDR Engine setup failed: {err}") from err
+    return client, health, MODE_REMOTE
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bool:
+    """Set up a HASDR config entry."""
+    client, health, mode = await _async_create_backend(hass, entry)
 
     coordinator = RtlSdrCoordinator(hass, client)
     await coordinator.async_config_entry_first_refresh()
@@ -231,7 +271,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bo
         identifiers={(DOMAIN, entry.entry_id)},
         name=entry.title,
         manufacturer="Gigabyte Grove",
-        model="RTL-SDR Bridge",
+        model={
+            MODE_LOCAL: "Embedded HASDR Runtime",
+            MODE_SUPERVISOR: "Managed HASDR SDR Engine",
+            MODE_REMOTE: "Remote HASDR SDR Engine",
+        }.get(mode, "HASDR SDR Engine"),
         sw_version=str(health.get("version", "unknown")),
     )
 
@@ -251,17 +295,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bo
         elif event_type == "job_error":
             hass.bus.async_fire(EVENT_JOB_ERROR, event)
 
-    websocket_task = entry.async_create_background_task(
+    event_task = entry.async_create_background_task(
         hass,
-        client.websocket_loop(on_event, stop_event),
-        f"{DOMAIN}_websocket_{entry.entry_id}",
+        client.event_loop(on_event, stop_event),
+        f"{DOMAIN}_events_{entry.entry_id}",
     )
     entry.runtime_data = RtlSdrRuntimeData(
         client=client,
         coordinator=coordinator,
         health=health,
+        mode=mode,
         stop_event=stop_event,
-        websocket_task=websocket_task,
+        event_task=event_task,
     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -269,13 +314,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bo
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: RtlSdrConfigEntry) -> bool:
-    """Unload an RTL-SDR bridge."""
+    """Unload an RTL-SDR backend."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if not unload_ok:
         return False
 
-    entry.runtime_data.stop_event.set()
-    entry.runtime_data.websocket_task.cancel()
-    await asyncio.gather(entry.runtime_data.websocket_task, return_exceptions=True)
-    await entry.runtime_data.coordinator.async_shutdown()
+    runtime = entry.runtime_data
+    runtime.stop_event.set()
+    runtime.event_task.cancel()
+    await asyncio.gather(runtime.event_task, return_exceptions=True)
+    await runtime.coordinator.async_shutdown()
+
+    close = getattr(runtime.client, "async_close", None)
+    if close is not None:
+        await close()
+
     return True
