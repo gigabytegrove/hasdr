@@ -26,9 +26,10 @@ EVENT_SIGNAL_DETECTED = "rtl_sdr_signal_detected"
 EVENT_JOB_ERROR = "rtl_sdr_job_error"
 
 SERVICE_SCAN = "scan"
+SERVICE_START_MONITOR = "start_monitor"
 SERVICE_START_DECODER = "start_decoder"
 SERVICE_STOP = "stop"
 SERVICE_REFRESH_RADIOS = "refresh_radios"
 SERVICE_GET_LAST_SCAN = "get_last_scan"
 
-PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.NUMBER, Platform.BUTTON]
