@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN = "rtl_sdr"
 NAME = "RTL-SDR"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 CONF_MODE = "mode"
 CONF_ADDON_SLUG = "addon_slug"
