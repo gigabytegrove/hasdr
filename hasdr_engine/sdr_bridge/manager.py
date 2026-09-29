@@ -234,6 +234,178 @@ class RadioManager:
             self._tasks.pop(radio.id, None)
             await self._broadcast({"type": "job_finished", "radio_id": radio.id, "job_id": job.id})
 
+    async def start_monitor(self, radio_id: str, payload: dict[str, Any]) -> Job:
+        """Continuously monitor signal power around one fixed frequency."""
+        radio = self.get_radio(radio_id)
+        frequency_hz = require_int(payload, "frequency_hz", 1)
+        span_hz = require_int(payload, "span_hz", 1_000, 2_800_000, 200_000)
+        bin_hz = require_int(payload, "bin_width_hz", 1, 2_800_000, 25_000)
+        integration = require_int(payload, "integration_seconds", 1, 3600, 1)
+        ppm = require_int(payload, "ppm", -1000, 1000, 0)
+        threshold = optional_float(payload, "threshold_db_above_noise", 0, 100)
+        if threshold is None:
+            threshold = 10.0
+        gain = optional_float(payload, "gain_db", 0, 100)
+        bias_tee = bool(payload.get("bias_tee", False))
+
+        if bin_hz > span_hz:
+            raise ValidationError("bin_width_hz must not exceed span_hz")
+
+        lower_hz = max(1, frequency_hz - (span_hz // 2))
+        upper_hz = lower_hz + span_hz
+
+        params = {
+            "frequency_hz": frequency_hz,
+            "lower_frequency_hz": lower_hz,
+            "upper_frequency_hz": upper_hz,
+            "span_hz": span_hz,
+            "bin_width_hz": bin_hz,
+            "integration_seconds": integration,
+            "ppm": ppm,
+            "gain_db": gain,
+            "bias_tee": bias_tee,
+            "threshold_db_above_noise": threshold,
+        }
+        job = self._claim(radio, "monitor", params)
+        task = asyncio.create_task(
+            self._run_monitor(radio, job),
+            name=f"monitor_{job.id}",
+        )
+        self._tasks[radio.id] = task
+        await self._broadcast(
+            {
+                "type": "job_started",
+                "radio_id": radio.id,
+                "job": job.to_dict(),
+            }
+        )
+        return job
+
+    async def _run_monitor(self, radio: Radio, job: Job) -> None:
+        """Run rtl_power continuously over a narrow window around the target."""
+        p = job.parameters
+        cmd = [
+            _runtime_command("rtl_power"),
+            "-d",
+            radio.rtl_power_selector,
+            "-f",
+            (
+                f"{p['lower_frequency_hz']}:"
+                f"{p['upper_frequency_hz']}:"
+                f"{p['bin_width_hz']}"
+            ),
+            "-i",
+            str(p["integration_seconds"]),
+            "-p",
+            str(p["ppm"]),
+        ]
+        if p["gain_db"] is not None:
+            cmd += ["-g", str(p["gain_db"])]
+        if p["bias_tee"]:
+            cmd += ["-T"]
+        cmd += ["-"]
+
+        stderr_tail: deque[str] = deque(maxlen=50)
+        stderr_task: asyncio.Task[None] | None = None
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=_runtime_env(),
+            )
+            self._processes[radio.id] = proc
+            job.pid = proc.pid
+
+            async def consume_stderr() -> None:
+                assert proc.stderr is not None
+                while line := await proc.stderr.readline():
+                    stderr_tail.append(line.decode("utf-8", "replace").rstrip())
+
+            stderr_task = asyncio.create_task(
+                consume_stderr(),
+                name=f"monitor_stderr_{job.id}",
+            )
+
+            assert proc.stdout is not None
+            while line := await proc.stdout.readline():
+                try:
+                    spectrum = parse_rtl_power_csv(
+                        line.decode("utf-8", "replace"),
+                        p["threshold_db_above_noise"],
+                    )
+                except ValueError:
+                    continue
+
+                bins = spectrum["bins"]
+                target_bin = min(
+                    bins,
+                    key=lambda item: abs(
+                        float(item["frequency_hz"]) - p["frequency_hz"]
+                    ),
+                )
+                target_power = float(target_bin["power_db"])
+                noise_floor = float(spectrum["noise_floor_db"])
+                threshold_db = float(spectrum["detection_threshold_db"])
+                result = {
+                    "frequency_hz": p["frequency_hz"],
+                    "measured_frequency_hz": round(
+                        float(target_bin["frequency_hz"])
+                    ),
+                    "power_db": round(target_power, 3),
+                    "noise_floor_db": round(noise_floor, 3),
+                    "signal_above_noise_db": round(
+                        target_power - noise_floor,
+                        3,
+                    ),
+                    "detection_threshold_db": round(threshold_db, 3),
+                    "signal_detected": target_power >= threshold_db,
+                    "peak_frequency_hz": spectrum["peak_frequency_hz"],
+                    "peak_power_db": spectrum["peak_power_db"],
+                    "updated_at": time.time(),
+                }
+                await self._broadcast(
+                    {
+                        "type": "monitor_update",
+                        "radio_id": radio.id,
+                        "job_id": job.id,
+                        "result": result,
+                    }
+                )
+
+            return_code = await proc.wait()
+            if return_code != 0:
+                detail = " | ".join(stderr_tail)[-4000:]
+                raise RuntimeError(
+                    f"rtl_power monitor exited {return_code}: {detail}"
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as err:
+            job.error = str(err)
+            await self._broadcast(
+                {
+                    "type": "job_error",
+                    "radio_id": radio.id,
+                    "job_id": job.id,
+                    "error": str(err),
+                }
+            )
+        finally:
+            if stderr_task:
+                stderr_task.cancel()
+                await asyncio.gather(stderr_task, return_exceptions=True)
+            self._processes.pop(radio.id, None)
+            self.jobs.pop(radio.id, None)
+            self._tasks.pop(radio.id, None)
+            await self._broadcast(
+                {
+                    "type": "job_finished",
+                    "radio_id": radio.id,
+                    "job_id": job.id,
+                }
+            )
+
     async def start_decoder(self, radio_id: str, payload: dict[str, Any]) -> Job:
         radio = self.get_radio(radio_id)
         frequencies_raw = payload.get("frequencies_hz")
