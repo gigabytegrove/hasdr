@@ -6,11 +6,18 @@ from homeassistant.const import Platform
 
 DOMAIN = "rtl_sdr"
 NAME = "RTL-SDR"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
+CONF_MODE = "mode"
+CONF_ADDON_SLUG = "addon_slug"
 CONF_PORT = "port"
 CONF_TOKEN = "token"
 CONF_USE_SSL = "use_ssl"
+
+MODE_LOCAL = "local"
+MODE_SUPERVISOR = "supervisor"
+MODE_REMOTE = "remote"
+
 DEFAULT_PORT = 8099
 
 EVENT_DECODED_PACKET = "rtl_sdr_decoded_packet"
