@@ -1,0 +1,6 @@
+configuration:
+  api_token:
+    name: Internal API token
+    description: Managed automatically by the HASDR Home Assistant integration.
+network:
+  8099/tcp: Internal HASDR API
