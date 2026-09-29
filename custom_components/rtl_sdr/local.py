@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import shutil
+from contextlib import suppress
 from typing import Any
 
 from .runtime.manager import RadioManager
@@ -52,10 +53,8 @@ class LocalRtlSdrClient:
             try:
                 queue.put_nowait(payload)
             except asyncio.QueueFull:
-                try:
+                with suppress(asyncio.QueueEmpty):
                     queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
                 queue.put_nowait(payload)
 
     async def health(self) -> dict[str, Any]:
