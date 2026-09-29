@@ -30,7 +30,10 @@ class BridgeApp:
             "HASDR_INSTANCE_ID",
             str(uuid.uuid5(uuid.NAMESPACE_URL, f"rtl-sdr-bridge:{self.token}")),
         )
-        self.name = os.environ.get("HASDR_NAME") or os.environ.get("SDR_BRIDGE_NAME", f"HASDR SDR Engine ({socket.gethostname()})")
+        self.name = os.environ.get("HASDR_NAME") or os.environ.get(
+            "SDR_BRIDGE_NAME",
+            f"HASDR SDR Engine ({socket.gethostname()})",
+        )
         self.sockets: set[web.WebSocketResponse] = set()
         self.manager = RadioManager(self.broadcast)
 
@@ -163,8 +166,12 @@ def main() -> None:
         raise SystemExit(str(err)) from err
     web.run_app(
         bridge.create(),
-        host=os.environ.get("HASDR_LISTEN") or os.environ.get("SDR_BRIDGE_LISTEN", "0.0.0.0"),
-        port=int(os.environ.get("HASDR_PORT") or os.environ.get("SDR_BRIDGE_PORT", "8099")),
+        host=os.environ.get("HASDR_LISTEN")
+        or os.environ.get("SDR_BRIDGE_LISTEN", "0.0.0.0"),
+        port=int(
+            os.environ.get("HASDR_PORT")
+            or os.environ.get("SDR_BRIDGE_PORT", "8099")
+        ),
     )
 
 
