@@ -1,5 +1,12 @@
 # HASDR — RTL-SDR for Home Assistant
 
+[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=gigabytegrove&repository=hasdr&category=integration)
+[![GitHub stars](https://img.shields.io/github/stars/gigabytegrove/hasdr?style=flat&label=Stars)](https://github.com/gigabytegrove/hasdr/stargazers)
+[![GitHub repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github&logoColor=white)](https://github.com/gigabytegrove/hasdr)
+[![Open issues](https://img.shields.io/github/issues/gigabytegrove/hasdr)](https://github.com/gigabytegrove/hasdr/issues)
+[![Latest GitHub release](https://img.shields.io/github/v/release/gigabytegrove/hasdr?label=Release)](https://github.com/gigabytegrove/hasdr/releases)
+[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-0070BA?logo=paypal&logoColor=white)](https://paypal.me/gigabytegrove)
+
 HASDR brings one or more RTL-SDR receivers directly into Home Assistant for spectrum scanning, RF activity detection, and protocol decoding.
 
 The normal setup is **local-first**. Users do not configure a bridge address, TCP port, or API token.
@@ -82,6 +89,16 @@ Only this advanced setup asks for:
 The standalone engine remains available under `bridge/` and `docker-compose.yml`.
 
 ## Home Assistant installation
+
+### Install through HACS (recommended)
+
+1. Open **HACS → Custom repositories** from the three-dot menu.
+2. Enter [`https://github.com/gigabytegrove/hasdr`](https://github.com/gigabytegrove/hasdr) and select **Integration**.
+3. Add the repository, open **RTL-SDR for Home Assistant**, and select **Download**.
+4. Restart Home Assistant, then open **Settings → Devices & services → Add integration → RTL-SDR**.
+5. Choose local hardware or the documented advanced remote host setup.
+
+The **Add to HACS** badge above opens the custom repository in your Home Assistant installation; HACS must already be installed. This does not indicate inclusion in the default HACS catalog.
 
 For HACS/custom integration use, install the repository and restart Home Assistant.
 
@@ -390,3 +407,7 @@ hacs.json                    HACS metadata
 **0.3.0**
 
 The 0.2 architecture changed HASDR from a manually configured bridge integration to a local-first Home Assistant integration with an automatically managed Supervisor backend and an embedded Container backend. Version 0.2.1 fixed the HACS update path by publishing validated versions as GitHub releases. Version 0.3.0 adds persistent per-receiver sweep controls, one-click range sweeps, a true generic fixed-frequency monitor, live signal metrics, and one-click stop controls directly on each Home Assistant receiver device.
+
+## Support Gigabyte Grove
+
+If this project is useful to you, you can support ongoing Gigabyte Grove development with an optional [PayPal donation](https://paypal.me/gigabytegrove). Donations are appreciated but never required to use this integration.
