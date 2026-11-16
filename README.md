@@ -411,3 +411,7 @@ The 0.2 architecture changed HASDR from a manually configured bridge integration
 ## Support Gigabyte Grove
 
 If this project is useful to you, you can support ongoing Gigabyte Grove development with an optional [PayPal donation](https://paypal.me/gigabytegrove). Donations are appreciated but never required to use this integration.
+
+### HACS branding (0.3.2)
+
+The integration now includes local `brand/icon.png` and `brand/logo.png` assets for Home Assistant 2026.11. They display in Device & Services and are included in HACS source validation; missing artwork in older downloads is corrected by updating to 0.3.2.

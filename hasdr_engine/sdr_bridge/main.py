@@ -15,7 +15,7 @@ from .manager import RadioBusyError, RadioManager, RadioNotFoundError
 from .models import ValidationError
 from .rtl import RtlSdrLibraryError
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 _LOGGER = logging.getLogger(__name__)
 
 

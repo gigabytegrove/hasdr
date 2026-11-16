@@ -10,7 +10,7 @@ from typing import Any
 from .runtime.manager import RadioManager
 from .runtime.rtl import RtlSdrLibrary, RtlSdrLibraryError
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 
 class LocalRuntimeUnavailable(RuntimeError):
