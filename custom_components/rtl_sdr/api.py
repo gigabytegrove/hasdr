@@ -134,7 +134,7 @@ class RtlSdrApiClient:
                         try:
                             payload = json.loads(message.data)
                         except json.JSONDecodeError:
-                            _LOGGER.debug("Ignoring invalid HASDR WebSocket JSON: %s", message.data)
+                            _LOGGER.debug("Ignoring invalid HASDR WebSocket JSON payload")
                             continue
                         if isinstance(payload, dict):
                             await callback(payload)

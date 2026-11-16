@@ -86,7 +86,7 @@ Only this advanced setup asks for:
 - API token
 - optional HTTPS
 
-The standalone engine remains available under `bridge/` and `docker-compose.yml`.
+The standalone engine remains available under `bridge/` and `docker-compose.yml`. **Security:** Docker Compose binds API port 8099 to `127.0.0.1` by default. For a separate Home Assistant host, explicitly set `HASDR_BIND` in `.env` to the engine host's trusted LAN IP and allow TCP/8099 only from Home Assistant; never forward this port to the public internet. Existing `.env` binding overrides remain supported. The bearer token is still required for all HTTP and WebSocket requests.
 
 ## Home Assistant installation
 

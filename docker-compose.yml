@@ -5,7 +5,7 @@ services:
     container_name: hasdr-engine
     restart: unless-stopped
     ports:
-      - "${HASDR_BIND:-0.0.0.0}:8099:8099"
+      - "${HASDR_BIND:-127.0.0.1}:8099:8099"
     environment:
       HASDR_API_TOKEN: "${HASDR_API_TOKEN:?Set HASDR_API_TOKEN in .env}"
       HASDR_NAME: "${HASDR_NAME:-HASDR SDR Engine}"
